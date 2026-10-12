@@ -61,6 +61,17 @@ class AdminSeederTest extends TestCase
         $this->assertSame(1, User::count());
     }
 
+    public function test_defaults_create_admin_toptanhasat_with_password(): void
+    {
+        // .env'de ADMIN_* yokken config/admin.php varsayılanları
+        $this->assertSame('admin@toptanhasat.com', config('admin.email'));
+        $this->seed(AdminSeeder::class);
+
+        $admin = User::where('email', 'admin@toptanhasat.com')->firstOrFail();
+        $this->assertTrue($admin->is_admin);
+        $this->assertTrue(Hash::check('password', $admin->password));
+    }
+
     public function test_does_nothing_without_or_with_invalid_values(): void
     {
         $this->configure(['email' => null, 'password' => null]);

@@ -7,10 +7,10 @@ use App\Support\Phone;
 use Illuminate\Database\Seeder;
 
 /**
- * .env'deki ADMIN_* değerleriyle ilk admin hesabını oluşturur (php artisan db:seed).
+ * İlk admin hesabını oluşturur (php artisan db:seed --force).
+ * Varsayılan: admin@toptanhasat.com / password (config/admin.php; .env'deki ADMIN_* ile değiştirilebilir).
  * - E-posta zaten kayıtlıysa o üye admin yapılır; şifresine dokunulmaz.
- * - Tekrar çalıştırmak güvenlidir; ikinci hesap açmaz, şifreyi değiştirmez.
- * - ADMIN_EMAIL / ADMIN_PASSWORD yoksa hiçbir şey yapmaz.
+ * - Tekrar çalıştırmak güvenlidir; ikinci hesap açmaz, panelden değiştirilen şifreyi geri almaz.
  */
 class AdminSeeder extends Seeder
 {
@@ -21,7 +21,7 @@ class AdminSeeder extends Seeder
         $password = (string) $config['password'];
 
         if ($email === '' || $password === '') {
-            $this->command?->warn('Admin oluşturulmadı: .env içinde ADMIN_EMAIL ve ADMIN_PASSWORD tanımlı değil.');
+            $this->command?->warn('Admin oluşturulmadı: admin e-postası ve şifresi boş (config/admin.php).');
 
             return;
         }
@@ -62,6 +62,6 @@ class AdminSeeder extends Seeder
         ]);
         $user->forceFill(['is_admin' => true, 'email_verified_at' => now()])->save();
 
-        $this->command?->info("Admin oluşturuldu: {$email}. Güvenlik için ADMIN_PASSWORD'ü .env'den silebilirsiniz.");
+        $this->command?->info("Admin oluşturuldu: {$email}. İlk girişten sonra şifreyi panelden değiştirin.");
     }
 }

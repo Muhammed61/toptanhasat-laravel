@@ -1,15 +1,15 @@
 <?php
 
 /*
-| İlk admin hesabı (database/seeders/AdminSeeder). Değerler sunucudaki .env'den okunur;
-| şifre koda / repoya yazılmaz. Seeder çalıştıktan sonra ADMIN_PASSWORD'ü .env'den
-| silip `php artisan config:cache` yapmanız önerilir.
+| İlk admin hesabı (database/seeders/AdminSeeder → php artisan db:seed --force).
+| .env'de ADMIN_* yoksa aşağıdaki varsayılanlar kullanılır. Canlıda ilk girişten
+| sonra şifreyi admin panelden (Profil ayarları) değiştirin.
 */
 
 return [
-    'email' => env('ADMIN_EMAIL'),
-    'password' => env('ADMIN_PASSWORD'),
+    'email' => env('ADMIN_EMAIL', 'admin@toptanhasat.com'),
+    'password' => env('ADMIN_PASSWORD', 'password'),
     'first_name' => env('ADMIN_FIRST_NAME', 'Site'),
     'last_name' => env('ADMIN_LAST_NAME', 'Yöneticisi'),
-    'phone' => env('ADMIN_PHONE'),
+    'phone' => env('ADMIN_PHONE', '05000000000'),
 ];
