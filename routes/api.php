@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\ListingController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicListingController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Middleware\EnsureMessagingEnabled;
@@ -18,6 +19,12 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
+
+    // Profilim
+    Route::put('/user', [ProfileController::class, 'update'])->middleware('throttle:20,1');
+    Route::put('/user/password', [ProfileController::class, 'password'])->middleware('throttle:6,1');
+    Route::post('/user/avatar', [ProfileController::class, 'avatar'])->middleware('throttle:10,1');
+    Route::delete('/user/avatar', [ProfileController::class, 'removeAvatar']);
 
     // İlanlar (üye)
     Route::post('/listings', [ListingController::class, 'store'])->middleware('throttle:10,1');
