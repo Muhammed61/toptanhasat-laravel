@@ -22,6 +22,7 @@ class EditSiteSettings extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['data']['messaging_enabled'] ??= true;
+        $data['data']['comments_enabled'] ??= true;
 
         $data['data']['mail'] = [
             'driver' => 'log',

@@ -14,7 +14,13 @@ use Illuminate\Support\Facades\Storage;
  */
 class SiteData
 {
-    private const CACHE_KEY = 'site.public';
+    /**
+     * Veri yapısı değişince (yeni alan eklenince) sürümü artırın; eski önbellek kendiliğinden
+     * geçersiz olur, yayına alırken önbellek temizlemeyi unutmak sorun çıkarmaz.
+     */
+    private const VERSION = 2;
+
+    private const CACHE_KEY = 'site.public.v'.self::VERSION;
 
     public static function get(): array
     {
@@ -38,6 +44,7 @@ class SiteData
                 'logo_light_url' => self::url(data_get($s, 'logo_light')),
                 'favicon_url' => self::url(data_get($s, 'favicon')),
                 'messaging_enabled' => (bool) data_get($s, 'messaging_enabled', true),
+                'comments_enabled' => (bool) data_get($s, 'comments_enabled', true),
                 'footer_text' => $text('footer_text'),
                 'footer_disclaimer' => $text('footer_disclaimer'),
                 'copyright' => $text('copyright'),

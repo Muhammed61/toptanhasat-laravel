@@ -87,11 +87,14 @@ class SiteSettingResource extends Resource
                             ->placeholder('Pazartesi - Cuma, 09:00 - 18:00'),
                     ]),
 
-                    Tab::make('Mesajlaşma')->icon(Heroicon::OutlinedChatBubbleLeftRight)->schema([
+                    Tab::make('Mesajlaşma ve Yorumlar')->icon(Heroicon::OutlinedChatBubbleLeftRight)->schema([
                         Toggle::make('data.messaging_enabled')->label('Site içi mesajlaşma açık')
                             ->helperText('Kapalıyken üyeler birbirine mesaj gönderemez; "Mesaj gönder" düğmesi ve Mesajlar sayfası sitede gizlenir. '
                                 .'Telefonunu paylaşan satıcılar telefonla aranmaya devam eder. Eski mesajlar silinmez; panelden görebilir, '
                                 .'tekrar açtığınızda üyeler kaldıkları yerden devam eder.'),
+                        Toggle::make('data.comments_enabled')->label('İlan yorumları açık')
+                            ->helperText('Kapalıyken ilan sayfalarındaki Yorumlar bölümü gizlenir ve yeni yorum yazılamaz. '
+                                .'Mevcut yorumlar silinmez; tekrar açtığınızda yeniden görünür.'),
                     ]),
 
                     Tab::make('SMTP Ayarları')->icon(Heroicon::OutlinedEnvelope)->schema([

@@ -35,4 +35,20 @@ class SiteSetting extends Model
     {
         return (bool) static::get('messaging_enabled', true);
     }
+
+    /** İlan detayındaki herkese açık yorumlar açık mı (panelden; ayar hiç kaydedilmediyse açık) */
+    public static function commentsEnabled(): bool
+    {
+        return (bool) static::get('comments_enabled', true);
+    }
+
+    /** Tek bir ayarı kaydeder (panel kısayolları için; diğer ayarlar korunur) */
+    public static function put(string $key, mixed $value): void
+    {
+        $setting = static::current();
+        $data = $setting->data;
+        data_set($data, $key, $value);
+        $setting->data = $data;
+        $setting->save();
+    }
 }

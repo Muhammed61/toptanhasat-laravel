@@ -5,11 +5,14 @@ namespace Tests\Feature;
 use App\Filament\Resources\ListingComments\Pages\ListListingComments;
 use App\Models\Listing;
 use App\Models\ListingComment;
+use App\Models\SiteSetting;
 use App\Models\User;
+use App\Notifications\ListingCommentedNotification;
 use Database\Seeders\CitySeeder;
 use Database\Seeders\ContentSeeder;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -112,5 +115,84 @@ class ListingCommentTest extends TestCase
         $this->listing->delete();
 
         $this->assertSame(0, ListingComment::count());
+    }
+
+    private function enableMail(): void
+    {
+        SiteSetting::put('mail', ['driver' => 'smtp', 'host' => 'smtp.example.com', 'port' => 587, 'from_address' => 'no-reply@example.com']);
+    }
+
+    private function comment(?User $as, string $body): void
+    {
+        app('auth')->forgetGuards();
+        $request = $as ? $this->actingAs($as) : $this;
+        $request->postJson("/api/listings/{$this->listing->id}/comments", ['body' => $body])->assertCreated();
+    }
+
+    public function test_new_comment_mails_owner_and_members_who_commented_but_not_the_author(): void
+    {
+        $this->enableMail();
+        Notification::fake();
+        $ayse = User::factory()->create(['first_name' => 'Ayşe']);
+        $veli = User::factory()->create(['first_name' => 'Veli']);
+
+        // Kimin hangi yorum için mail aldığı (testte aynı uygulama birden çok istek işlediği için
+        // "yanıttan sonra" görevleri tekrar çalışabilir; yorum metnine göre tekilleştirilir)
+        $received = fn (User $u) => Notification::sent($u, ListingCommentedNotification::class)
+            ->map(fn (ListingCommentedNotification $n) => $n->comment->body)->unique()->values()->all();
+
+        $this->comment(null, 'Misafir sorusu');        // misafir: sadece ilan sahibine
+        $this->comment($ayse, 'Ayşe soruyor');         // Ayşe: sahibe, kendisine değil
+        $this->comment($veli, 'Veli de soruyor');      // Veli: sahibe ve önceden yazan Ayşe'ye
+        $this->comment($this->owner, 'Sahibin cevabı'); // sahip: kendisine değil, Ayşe ve Veli'ye
+
+        $this->assertSame(['Misafir sorusu', 'Ayşe soruyor', 'Veli de soruyor'], $received($this->owner));
+        $this->assertSame(['Veli de soruyor', 'Sahibin cevabı'], $received($ayse));
+        $this->assertSame(['Sahibin cevabı'], $received($veli));
+
+        Notification::assertSentTo($ayse, ListingCommentedNotification::class, function (ListingCommentedNotification $n) use ($ayse) {
+            $mail = $n->toMail($ayse);
+
+            return ! $n->toOwner
+                && str_contains($mail->subject, 'Yorum yaptığınız')
+                && $mail->actionUrl === rtrim(config('app.frontend_url'), '/')."/ilan/{$this->listing->id}#yorumlar";
+        });
+    }
+
+    public function test_owner_mail_mentions_comment_and_no_mail_when_smtp_off(): void
+    {
+        Notification::fake();
+        $this->comment(null, 'SMTP kapalıyken yorum');
+        Notification::assertNothingSent();
+
+        $comment = $this->listing->comments()->first();
+        $mail = (new ListingCommentedNotification($comment, toOwner: true))->toMail($this->owner);
+        $this->assertStringContainsString('ilanınıza yeni yorum yapıldı', $mail->subject);
+        $this->assertStringContainsString('SMTP kapalıyken yorum', implode(' ', $mail->introLines));
+    }
+
+    public function test_admin_can_turn_comments_off_and_edit_a_comment(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_admin' => true])->save();
+        $comment = $this->listing->comments()->create(['name' => 'Ayşe', 'body' => 'Kötü söz içeren yorum']);
+
+        Livewire::actingAs($admin)
+            ->test(ListListingComments::class)
+            ->callAction(TestAction::make('edit')->table($comment), ['name' => 'Ayşe', 'body' => 'Düzeltilmiş yorum'])
+            ->assertHasNoFormErrors()
+            ->callAction('toggleComments')
+            ->assertNotified('İlan yorumları kapatıldı');
+
+        $this->assertSame('Düzeltilmiş yorum', $comment->fresh()->body);
+        $this->assertFalse(SiteSetting::commentsEnabled());
+
+        app('auth')->forgetGuards();
+        $this->getJson('/api/site')->assertJsonPath('settings.comments_enabled', false);
+        $this->getJson("/api/listings/{$this->listing->id}/comments")->assertForbidden();
+        $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Kapalıyken'])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'İlan yorumları şu anda kapalı.');
+        $this->assertModelExists($comment); // kapatınca silinmez
     }
 }

@@ -10,7 +10,11 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -52,6 +56,15 @@ class ListingCommentResource extends Resource
         return parent::getEloquentQuery()->with(['listing', 'user']);
     }
 
+    /** Düzenle penceresi: uygunsuz kısmı çıkarmak ya da yazım düzeltmek için */
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->columns(1)->components([
+            TextInput::make('name')->label('Yazan')->required()->maxLength(60),
+            Textarea::make('body')->label('Yorum')->required()->rows(5)->maxLength(1000),
+        ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -87,6 +100,7 @@ class ListingCommentResource extends Resource
                     ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $q, $id) => $q->where('listing_id', $id))),
             ])
             ->recordActions([
+                EditAction::make()->label('Düzenle')->modalHeading('Yorumu düzenle')->successNotificationTitle('Yorum güncellendi'),
                 DeleteAction::make()->label('Sil')->modalHeading('Yorum silinsin mi?'),
             ])
             ->toolbarActions([
