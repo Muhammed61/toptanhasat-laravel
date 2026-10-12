@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Conversation;
 use App\Models\Listing;
+use App\Models\SiteSetting;
 use App\Models\User;
 use Database\Seeders\CitySeeder;
 use Database\Seeders\ContentSeeder;
@@ -136,5 +137,38 @@ class MessagingTest extends TestCase
             ->assertJsonPath('conversation.listing.available', false)
             ->assertJsonPath('conversation.listing.title', $title)
             ->assertJsonCount(1, 'messages');
+    }
+
+    private function setMessaging(bool $enabled): void
+    {
+        $setting = SiteSetting::current();
+        $setting->data = [...$setting->data, 'messaging_enabled' => $enabled];
+        $setting->save();
+    }
+
+    public function test_admin_can_turn_messaging_off_and_messages_are_kept(): void
+    {
+        $id = $this->as($this->buyer)->postJson("/api/listings/{$this->listing->id}/conversations", ['body' => 'Merhaba'])->json('id');
+        $this->getJson('/api/site')->assertJsonPath('settings.messaging_enabled', true);
+
+        $this->setMessaging(false);
+
+        $this->getJson('/api/site')->assertJsonPath('settings.messaging_enabled', false);
+        $this->as($this->buyer)->postJson("/api/listings/{$this->listing->id}/conversations", ['body' => 'Tekrar'])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Site içi mesajlaşma şu anda kapalı.');
+        $this->as($this->seller)->postJson("/api/conversations/$id/messages", ['body' => 'Cevap'])->assertForbidden();
+        $this->as($this->seller)->getJson('/api/conversations')->assertForbidden();
+        $this->as($this->seller)->getJson("/api/conversations/$id")->assertForbidden();
+        $this->assertDatabaseCount('messages', 1);
+
+        // Telefonla iletişim etkilenmez
+        $this->listing->forceFill(['show_phone' => true])->save();
+        $this->as($this->buyer)->getJson("/api/listings/{$this->listing->id}/contact")->assertOk();
+
+        // Tekrar açınca kaldığı yerden
+        $this->setMessaging(true);
+        $this->as($this->seller)->getJson("/api/conversations/$id")->assertOk()->assertJsonCount(1, 'messages');
+        $this->as($this->seller)->postJson("/api/conversations/$id/messages", ['body' => 'Cevap'])->assertCreated();
     }
 }

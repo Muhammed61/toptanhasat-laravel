@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\ListingController;
 use App\Http\Controllers\Api\PublicListingController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Middleware\EnsureMessagingEnabled;
 use Illuminate\Support\Facades\Route;
 
 // Üyelik
@@ -27,12 +28,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // İlan sahibinin iletişim bilgisi sadece üyelere; toplu toplanmasın diye sınırlı
     Route::get('/listings/{listing}/contact', [PublicListingController::class, 'contact'])->middleware('throttle:30,1');
 
-    // Site içi mesajlaşma
-    Route::post('/listings/{listing}/conversations', [ConversationController::class, 'start'])->middleware('throttle:20,1');
-    Route::get('/conversations', [ConversationController::class, 'index']);
-    Route::get('/conversations/unread-count', [ConversationController::class, 'unreadCount']);
-    Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->whereNumber('conversation');
-    Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'reply'])->middleware('throttle:30,1');
+    // Site içi mesajlaşma (admin panelden kapatılabilir)
+    Route::middleware(EnsureMessagingEnabled::class)->group(function () {
+        Route::post('/listings/{listing}/conversations', [ConversationController::class, 'start'])->middleware('throttle:20,1');
+        Route::get('/conversations', [ConversationController::class, 'index']);
+        Route::get('/conversations/unread-count', [ConversationController::class, 'unreadCount']);
+        Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->whereNumber('conversation');
+        Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'reply'])->middleware('throttle:30,1');
+    });
 });
 
 // Yayındaki ilanlar (herkese açık)

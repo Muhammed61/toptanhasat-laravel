@@ -8,6 +8,7 @@ use BackedEnum;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
@@ -73,6 +74,13 @@ class SiteSettingResource extends Resource
                         TextInput::make('data.address')->label('Adres')->maxLength(200),
                         TextInput::make('data.working_hours')->label('Çalışma saatleri')->maxLength(100)
                             ->placeholder('Pazartesi - Cuma, 09:00 - 18:00'),
+                    ]),
+
+                    Tab::make('Mesajlaşma')->icon(Heroicon::OutlinedChatBubbleLeftRight)->schema([
+                        Toggle::make('data.messaging_enabled')->label('Site içi mesajlaşma açık')
+                            ->helperText('Kapalıyken üyeler birbirine mesaj gönderemez; "Mesaj gönder" düğmesi ve Mesajlar sayfası sitede gizlenir. '
+                                .'Telefonunu paylaşan satıcılar telefonla aranmaya devam eder. Eski mesajlar silinmez; panelden görebilir, '
+                                .'tekrar açtığınızda üyeler kaldıkları yerden devam eder.'),
                     ]),
 
                     Tab::make('Sosyal Medya')->icon(Heroicon::OutlinedShare)->schema([

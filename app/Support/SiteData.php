@@ -37,6 +37,7 @@ class SiteData
                 'logo_url' => self::url(data_get($s, 'logo')),
                 'logo_light_url' => self::url(data_get($s, 'logo_light')),
                 'favicon_url' => self::url(data_get($s, 'favicon')),
+                'messaging_enabled' => (bool) data_get($s, 'messaging_enabled', true),
                 'footer_text' => $text('footer_text'),
                 'footer_disclaimer' => $text('footer_disclaimer'),
                 'copyright' => $text('copyright'),

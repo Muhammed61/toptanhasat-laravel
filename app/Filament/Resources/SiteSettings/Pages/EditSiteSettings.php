@@ -17,6 +17,14 @@ class EditSiteSettings extends EditRecord
         parent::mount(SiteSetting::current()->getKey());
     }
 
+    /** Hiç kaydedilmemiş anahtarlar için varsayılanlar (anahtar yoksa form kapalı gösterirdi) */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['data']['messaging_enabled'] ??= true;
+
+        return $data;
+    }
+
     public function getTitle(): string
     {
         return 'Site Ayarları';
