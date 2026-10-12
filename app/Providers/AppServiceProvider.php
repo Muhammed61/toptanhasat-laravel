@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\MailSettings;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsIconAlias;
@@ -29,5 +30,8 @@ class AppServiceProvider extends ServiceProvider
             PanelsIconAlias::SIDEBAR_EXPAND_BUTTON => Heroicon::OutlinedBars3,
             PanelsIconAlias::SIDEBAR_EXPAND_BUTTON_RTL => Heroicon::OutlinedBars3,
         ]);
+
+        // Mail gönderimleri .env yerine panelden girilen SMTP ayarlarıyla yapılır
+        $this->callAfterResolving('mail.manager', fn () => MailSettings::apply());
     }
 }

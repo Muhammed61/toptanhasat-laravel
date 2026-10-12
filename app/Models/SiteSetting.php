@@ -29,4 +29,10 @@ class SiteSetting extends Model
     {
         return data_get(static::current()->data, $key, $default);
     }
+
+    /** Üyeler arası site içi mesajlaşma açık mı (panelden; ayar hiç kaydedilmediyse açık) */
+    public static function messagingEnabled(): bool
+    {
+        return (bool) static::get('messaging_enabled', true);
+    }
 }

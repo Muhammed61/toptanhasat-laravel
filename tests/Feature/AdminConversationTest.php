@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Filament\Resources\Conversations\Pages\ListConversations;
 use App\Filament\Resources\Conversations\Pages\ViewConversation;
 use App\Models\Conversation;
+use App\Filament\Resources\SiteSettings\Pages\EditSiteSettings;
 use App\Models\Listing;
+use App\Models\SiteSetting;
 use App\Models\User;
 use Database\Seeders\CitySeeder;
 use Database\Seeders\ContentSeeder;
@@ -106,6 +108,38 @@ class AdminConversationTest extends TestCase
         $this->assertSame(1, $c->messages()->count());
         $this->assertSame($c->messages()->first()->id, $c->last_message_id);
         $this->assertFalse($c->isUnreadFor($this->buyer)); // silinen mesaj artık okunmamış sayılmaz
+    }
+
+    public function test_admin_toggles_messaging_from_list_page(): void
+    {
+        $this->assertTrue(SiteSetting::messagingEnabled()); // ayar hiç kaydedilmemişken açık
+
+        Livewire::actingAs($this->admin)
+            ->test(ListConversations::class)
+            ->assertSee('Site içi mesajlaşma açık')
+            ->callAction('toggleMessaging')
+            ->assertNotified('Mesajlaşma kapatıldı');
+        $this->assertFalse(SiteSetting::messagingEnabled());
+
+        Livewire::actingAs($this->admin)
+            ->test(ListConversations::class)
+            ->assertSee('Site içi mesajlaşma kapalı')
+            ->callAction('toggleMessaging')
+            ->assertNotified('Mesajlaşma açıldı');
+        $this->assertTrue(SiteSetting::messagingEnabled());
+        $this->assertModelExists($this->conversation);
+    }
+
+    public function test_site_settings_shows_messaging_on_by_default_and_saves(): void
+    {
+        Livewire::actingAs($this->admin)
+            ->test(EditSiteSettings::class)
+            ->assertSchemaStateSet(['data.messaging_enabled' => true])
+            ->fillForm(['data.messaging_enabled' => false])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertFalse(SiteSetting::messagingEnabled());
     }
 
     public function test_admin_deletes_whole_conversation(): void
