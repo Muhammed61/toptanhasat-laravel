@@ -32,16 +32,29 @@ class ListingCommentTest extends TestCase
 
     public function test_guest_can_comment_without_approval_and_everyone_sees_it(): void
     {
-        $this->postJson("/api/listings/{$this->listing->id}/comments", ['name' => ' Ayşe ', 'body' => ' Teslimat Bursa\'ya olur mu? '])
+        // Misafirin yazdığı ad yok sayılır; IP'ye bağlı otomatik ad verilir
+        $name = $this->postJson("/api/listings/{$this->listing->id}/comments", ['name' => 'Ayşe', 'body' => ' Teslimat Bursa\'ya olur mu? '])
             ->assertCreated()
-            ->assertJsonPath('name', 'Ayşe')
             ->assertJsonPath('body', 'Teslimat Bursa\'ya olur mu?')
-            ->assertJsonPath('is_owner', false);
+            ->assertJsonPath('is_owner', false)
+            ->json('name');
+        $this->assertMatchesRegularExpression('/^Misafir\d{5}$/', $name);
 
         $this->getJson("/api/listings/{$this->listing->id}/comments")
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.name', 'Ayşe');
+            ->assertJsonPath('viewer_name', $name)
+            ->assertJsonPath('data.0.name', $name);
+    }
+
+    public function test_same_ip_keeps_the_same_guest_name(): void
+    {
+        $post = fn (string $ip, string $body) => $this->withServerVariables(['REMOTE_ADDR' => $ip])
+            ->postJson("/api/listings/{$this->listing->id}/comments", ['body' => $body])->json('name');
+
+        $first = $post('85.10.20.30', 'İlk yorum');
+        $this->assertSame($first, $post('85.10.20.30', 'İkinci yorum'));
+        $this->assertNotSame($first, $post('176.40.1.2', 'Başka kişi'));
     }
 
     public function test_listing_owner_reply_is_marked_and_uses_account_name(): void
@@ -55,9 +68,8 @@ class ListingCommentTest extends TestCase
 
     public function test_validation_honeypot_and_unpublished_listing(): void
     {
-        $this->postJson("/api/listings/{$this->listing->id}/comments", ['name' => '', 'body' => ''])
+        $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => ''])
             ->assertUnprocessable()
-            ->assertJsonPath('errors.name.0', 'Adınızı yazın.')
             ->assertJsonPath('errors.body.0', 'Yorumunuzu yazın.');
 
         $this->postJson("/api/listings/{$this->listing->id}/comments", ['name' => 'Bot', 'body' => 'Ucuz ürün', 'website' => 'http://spam.example'])
