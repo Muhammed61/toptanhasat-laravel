@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\SiteSetting;
+use Closure;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use Throwable;
@@ -97,6 +98,25 @@ class MailSettings
             app('mail.manager')->purge('smtp');
             app('mail.manager')->purge('log');
         }
+    }
+
+    /**
+     * Bildirim maillerini yanıt gönderildikten sonra yollar (kullanıcı beklemez).
+     * SMTP ayarlı değilse hiç denenmez; gönderim hatası kaydedilir, işlemi bozmaz.
+     */
+    public static function sendLater(Closure $send): void
+    {
+        dispatch(function () use ($send) {
+            if (! self::isActive()) {
+                return;
+            }
+
+            try {
+                $send();
+            } catch (Throwable $e) {
+                report($e);
+            }
+        })->afterResponse();
     }
 
     public static function encrypt(string $password): string

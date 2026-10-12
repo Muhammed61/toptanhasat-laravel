@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
-use Throwable;
 
 class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
 {
@@ -79,19 +78,10 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
                 Storage::disk('public')->delete($old);
             }
 
-            // Şifre nereden değişirse değişsin hesap sahibine bilgi maili (yanıttan sonra; hata işlemi bozmaz)
+            // Şifre nereden değişirse değişsin hesap sahibine bilgi maili
             if ($user->wasChanged('password')) {
                 $changedAt = now();
-                dispatch(function () use ($user, $changedAt) {
-                    if (! MailSettings::isActive()) {
-                        return;
-                    }
-                    try {
-                        $user->notify(new PasswordChangedNotification($changedAt));
-                    } catch (Throwable $e) {
-                        report($e);
-                    }
-                })->afterResponse();
+                MailSettings::sendLater(fn () => $user->notify(new PasswordChangedNotification($changedAt)));
             }
         });
         static::deleted(fn (User $user) => $user->avatar_path && Storage::disk('public')->delete($user->avatar_path));

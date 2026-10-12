@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Throwable;
 
 class SiteController extends Controller
 {
@@ -59,16 +58,10 @@ class SiteController extends Controller
 
         $contact = ContactMessage::create([...$data, 'ip_address' => $request->ip()]);
 
-        // Panelde alıcı adresi ve SMTP ayarlıysa mesaj maille de iletilir (yanıttan sonra; hata formu bozmaz)
+        // Panelde alıcı adresi ve SMTP ayarlıysa mesaj maille de iletilir
         $recipient = MailSettings::get()['recipient'];
-        if (filled($recipient) && MailSettings::isActive()) {
-            dispatch(function () use ($recipient, $contact) {
-                try {
-                    Mail::to($recipient)->send(new ContactMessageReceived($contact));
-                } catch (Throwable $e) {
-                    report($e);
-                }
-            })->afterResponse();
+        if (filled($recipient)) {
+            MailSettings::sendLater(fn () => Mail::to($recipient)->send(new ContactMessageReceived($contact)));
         }
 
         return response()->json(['message' => 'Mesajınız alındı.'], 201);

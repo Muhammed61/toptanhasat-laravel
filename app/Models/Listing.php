@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\ListingStatus;
 use App\Enums\ListingType;
+use App\Notifications\ListingApprovedNotification;
+use App\Support\MailSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -89,12 +91,19 @@ class Listing extends Model
 
     public function approve(User $admin): void
     {
+        $wasApproved = $this->status === ListingStatus::Approved;
+
         $this->forceFill([
             'status' => ListingStatus::Approved,
             'rejection_reason' => null,
             'reviewed_at' => now(),
             'reviewed_by' => $admin->id,
         ])->save();
+
+        // Yeni yayına giren ilan için sahibine bilgi maili (zaten yayındaysa tekrar gitmez)
+        if (! $wasApproved && $owner = $this->user) {
+            MailSettings::sendLater(fn () => $owner->notify(new ListingApprovedNotification($this)));
+        }
     }
 
     /** Sahibi içeriği değiştirdi: inceleme sıfırlanır, admin tekrar onaylar (kaydetmez) */
