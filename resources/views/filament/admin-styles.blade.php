@@ -19,6 +19,30 @@
         .dark .fi-main-sidebar {
             border-inline-end-color: color-mix(in oklab, var(--color-white) 16%, transparent);
         }
+
+        /* Aynı çizgi üst barda da devam eder (logo ile hamburger arasından) */
+        .fi-topbar {
+            position: relative;
+        }
+
+        .fi-topbar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            inset-inline-start: calc(var(--sidebar-width) - 1px);
+            width: 1px;
+            background: var(--gray-300);
+            pointer-events: none;
+        }
+
+        .dark .fi-topbar::after {
+            background: color-mix(in oklab, var(--color-white) 16%, transparent);
+        }
+
+        .fi-body:has(.fi-main-sidebar:not(.fi-sidebar-open)) .fi-topbar::after {
+            inset-inline-start: calc(var(--collapsed-sidebar-width) - 1px);
+        }
     }
 
     /* Hamburger düğmesi logonun sağında (mobil ve masaüstü) */
