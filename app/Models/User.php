@@ -3,6 +3,9 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\PasswordChangedNotification;
+use App\Notifications\ResetPasswordNotification;
+use App\Support\MailSettings;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -74,6 +77,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
             if ($user->wasChanged('avatar_path') && $old = $user->getOriginal('avatar_path')) {
                 Storage::disk('public')->delete($old);
             }
+
+            // Şifre nereden değişirse değişsin hesap sahibine bilgi maili
+            if ($user->wasChanged('password')) {
+                $changedAt = now();
+                MailSettings::sendLater(fn () => $user->notify(new PasswordChangedNotification($changedAt)));
+            }
         });
         static::deleted(fn (User $user) => $user->avatar_path && Storage::disk('public')->delete($user->avatar_path));
     }
@@ -108,5 +117,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
     public function getFilamentName(): string
     {
         return $this->fullName();
+    }
+
+    /** Türkçe, Vue sitesindeki sıfırlama sayfasına giden mail */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }

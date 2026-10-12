@@ -33,6 +33,36 @@ Panel: http://localhost:8000/admin
 Vue sitesi geliştirmede http://localhost:5173 adresinden çalışır; `.env` içindeki
 `FRONTEND_URL` ve `SANCTUM_STATEFUL_DOMAINS` bu adrese göre ayarlıdır.
 
+## Yayına alma (api.toptanhasat.com)
+
+Site `https://toptanhasat.com`, bu proje `https://api.toptanhasat.com` adresinde çalışır.
+Site API'ye başka bir alan adından çerezle (Sanctum oturumu) istek attığı için sunucudaki
+`.env`'de şunlar olmalı:
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://api.toptanhasat.com
+FRONTEND_URL=https://toptanhasat.com
+SESSION_DOMAIN=.toptanhasat.com
+SESSION_SECURE_COOKIE=true
+SANCTUM_STATEFUL_DOMAINS=toptanhasat.com,www.toptanhasat.com
+CORS_ALLOWED_ORIGINS=https://toptanhasat.com,https://www.toptanhasat.com
+```
+
+Ardından:
+
+```sh
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan storage:link
+php artisan config:cache && php artisan route:cache
+```
+
+- Alt alan adının kök dizini projenin `public/` klasörü olmalı.
+- İki adreste de HTTPS (SSL) gerekir; güvenli çerezler HTTP'de çalışmaz.
+- Mail ayarları `.env`'den değil, panelden yapılır: Site Ayarları → SMTP Ayarları.
+
 ## Testler
 
 ```sh

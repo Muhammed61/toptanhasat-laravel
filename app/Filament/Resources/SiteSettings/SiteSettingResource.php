@@ -130,7 +130,7 @@ class SiteSettingResource extends Resource
                                         ->columnSpan(2),
                                     TextInput::make('data.mail.password')->label('SMTP Şifre')
                                         ->password()->revealable()->maxLength(200)->autocomplete('new-password')
-                                        ->helperText('Şifre veritabanında şifrelenmiş saklanır. Alanı boş bırakırsanız kayıtlı şifre değişmez.')
+                                        ->helperText('Şifre veritabanında şifrelenmiş saklanır. Göz ikonuyla gösterip gizleyebilirsiniz.')
                                         ->columnSpan(3),
                                 ]),
 
