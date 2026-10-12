@@ -60,6 +60,7 @@ Ardından:
 
 ```sh
 composer install --no-dev --optimize-autoloader
+php artisan filament:assets          # panelin css/js/font dosyaları (repoda yok; olmazsa panel 404 verir)
 php artisan migrate --force
 php artisan db:seed --force          # il/ilçe, içerikler ve .env'deki ADMIN_* ile admin hesabı
 php artisan storage:link
@@ -68,6 +69,8 @@ php artisan config:cache && php artisan route:cache
 
 - Alt alan adının kök dizini projenin `public/` klasörü olmalı.
 - İki adreste de HTTPS (SSL) gerekir; güvenli çerezler HTTP'de çalışmaz.
+- Cloudflare/nginx arkasında Laravel vekil sunucu başlıklarına güvenir (`bootstrap/app.php` →
+  `trustProxies`) ve `APP_URL` https ise adresleri https üretir; `APP_URL=https://...` olmalı.
 - Mail ayarları `.env`'den değil, panelden yapılır: Site Ayarları → SMTP Ayarları.
 
 ## Testler

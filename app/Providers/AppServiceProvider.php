@@ -6,6 +6,7 @@ use App\Support\MailSettings;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsIconAlias;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -33,5 +34,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Mail gönderimleri .env yerine panelden girilen SMTP ayarlarıyla yapılır
         $this->callAfterResolving('mail.manager', fn () => MailSettings::apply());
+
+        // APP_URL https ise tüm adresler https üretilir (vekil sunucu başlıkları gelmese bile)
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
     }
 }

@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Vue SPA, Sanctum ile çerez (session) tabanlı oturum kullanır
         $middleware->statefulApi();
+
+        // Yayında HTTPS, Cloudflare/nginx'te sonlanır ve istek Laravel'e http olarak gelir.
+        // Vekil sunucuların X-Forwarded-* başlıklarına güvenilir ki üretilen adresler
+        // (örn. Livewire'ın /livewire/update'i) https olsun — yoksa "Mixed Content" hatası olur.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
