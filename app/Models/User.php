@@ -3,7 +3,9 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\PasswordChangedNotification;
 use App\Notifications\ResetPasswordNotification;
+use App\Support\MailSettings;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -14,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
 {
@@ -74,6 +77,21 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
         static::updated(function (User $user) {
             if ($user->wasChanged('avatar_path') && $old = $user->getOriginal('avatar_path')) {
                 Storage::disk('public')->delete($old);
+            }
+
+            // Şifre nereden değişirse değişsin hesap sahibine bilgi maili (yanıttan sonra; hata işlemi bozmaz)
+            if ($user->wasChanged('password')) {
+                $changedAt = now();
+                dispatch(function () use ($user, $changedAt) {
+                    if (! MailSettings::isActive()) {
+                        return;
+                    }
+                    try {
+                        $user->notify(new PasswordChangedNotification($changedAt));
+                    } catch (Throwable $e) {
+                        report($e);
+                    }
+                })->afterResponse();
             }
         });
         static::deleted(fn (User $user) => $user->avatar_path && Storage::disk('public')->delete($user->avatar_path));
