@@ -88,15 +88,15 @@ class PublicListingTest extends TestCase
 
     public function test_listing_is_paginated_newest_first(): void
     {
-        $listings = collect(range(1, 14))->map(fn ($i) => tap($this->approved(), fn ($l) => $l->forceFill(['created_at' => now()->subMinutes(20 - $i)])->save()));
+        $listings = collect(range(1, 23))->map(fn ($i) => tap($this->approved(), fn ($l) => $l->forceFill(['created_at' => now()->subMinutes(30 - $i)])->save()));
 
         $first = $this->getJson('/api/listings')->assertOk();
-        $first->assertJsonCount(12, 'data')
-            ->assertJsonPath('meta.total', 14)
+        $first->assertJsonCount(20, 'data') // sayfa başına 20
+            ->assertJsonPath('meta.total', 23)
             ->assertJsonPath('meta.last_page', 2)
             ->assertJsonPath('data.0.id', $listings->last()->id);
 
-        $this->getJson('/api/listings?page=2')->assertJsonCount(2, 'data');
+        $this->getJson('/api/listings?page=2')->assertJsonCount(3, 'data');
     }
 
     public function test_contact_info_is_members_only(): void
