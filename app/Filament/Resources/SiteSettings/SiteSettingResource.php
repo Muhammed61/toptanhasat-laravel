@@ -4,17 +4,28 @@ namespace App\Filament\Resources\SiteSettings;
 
 use App\Filament\Resources\SiteSettings\Pages\EditSiteSettings;
 use App\Models\SiteSetting;
+use App\Support\MailSettings;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Callout;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Throwable;
 use UnitEnum;
 
 /** Tek kayıtlık site ayarları; menüden doğrudan düzenleme ekranı açılır. */
@@ -83,6 +94,58 @@ class SiteSettingResource extends Resource
                                 .'tekrar açtığınızda üyeler kaldıkları yerden devam eder.'),
                     ]),
 
+                    Tab::make('SMTP Ayarları')->icon(Heroicon::OutlinedEnvelope)->schema([
+                        Section::make('E-posta Ayarları')
+                            ->afterHeader([
+                                Text::make(fn () => MailSettings::statusLabel())
+                                    ->badge()
+                                    ->color(fn () => MailSettings::isActive() ? 'success' : 'gray'),
+                            ])
+                            ->schema([
+                                Callout::make()
+                                    ->info()
+                                    ->description('Sitedeki tüm mail gönderimleri (iletişim formu ve ileride eklenecek bildirim mailleri) buradaki ayarlarla yapılır. Sunucudaki .env dosyasının mail ayarları kullanılmaz.'),
+
+                                Grid::make(3)->schema([
+                                    TextInput::make('data.mail.recipient')->label('Siteden Gelen Mailler (Alıcı)')
+                                        ->email()->maxLength(100)
+                                        ->helperText('İletişim formundan gelen mesajlar bu adrese iletilir.'),
+                                    TextInput::make('data.mail.from_address')->label('Gönderici E-posta')
+                                        ->email()->maxLength(100)
+                                        ->helperText('Maillerin "kimden" adresi. Genelde SMTP kullanıcısıyla aynı olmalı.'),
+                                    TextInput::make('data.mail.from_name')->label('Gönderici İsim')
+                                        ->maxLength(100)
+                                        ->helperText('Gelen kutusunda gönderen adı olarak görünür.'),
+                                ]),
+
+                                Grid::make(5)->schema([
+                                    Select::make('data.mail.driver')->label('Mail Sürücüsü')
+                                        ->options(MailSettings::DRIVERS)->default('log')->selectablePlaceholder(false),
+                                    TextInput::make('data.mail.host')->label('SMTP Host')->placeholder('smtp.gmail.com')->maxLength(150)
+                                        ->columnSpan(2),
+                                    TextInput::make('data.mail.port')->label('SMTP Port')->numeric()->minValue(1)->maxValue(65535)->placeholder('587'),
+                                    Select::make('data.mail.encryption')->label('Şifreleme')
+                                        ->options(MailSettings::ENCRYPTIONS)->default('tls')->selectablePlaceholder(false),
+                                    TextInput::make('data.mail.username')->label('SMTP Kullanıcı')->maxLength(150)
+                                        ->columnSpan(2),
+                                    TextInput::make('data.mail.password')->label('SMTP Şifre')
+                                        ->password()->revealable()->maxLength(200)->autocomplete('new-password')
+                                        ->helperText('Şifre veritabanında şifrelenmiş saklanır. Alanı boş bırakırsanız kayıtlı şifre değişmez.')
+                                        ->columnSpan(3),
+                                ]),
+
+                                Actions::make([
+                                    Action::make('sendTestMail')
+                                        ->label('Test Maili Gönder')
+                                        ->icon(Heroicon::OutlinedPaperAirplane)
+                                        ->outlined()
+                                        ->action(fn () => self::sendTestMail()),
+                                ]),
+                                Text::make('Önce ayarları kaydedin; test maili kayıtlı ayarlarla "Siteden Gelen Mailler (Alıcı)" adresine gönderilir.')
+                                    ->color('gray'),
+                            ]),
+                    ]),
+
                     Tab::make('Sosyal Medya')->icon(Heroicon::OutlinedShare)->schema([
                         Section::make()
                             ->description('Boş bırakılan hesapların ikonu sitede gösterilmez.')
@@ -109,6 +172,43 @@ class SiteSettingResource extends Resource
                     ]),
                 ]),
             ]);
+    }
+
+    /** Kayıtlı SMTP ayarlarıyla alıcı adresine deneme maili; hata olursa sebebini gösterir */
+    public static function sendTestMail(): void
+    {
+        MailSettings::apply();
+        $s = MailSettings::get();
+
+        if (blank($s['recipient'])) {
+            Notification::make()->title('Önce "Siteden Gelen Mailler (Alıcı)" adresini girip kaydedin')->warning()->send();
+
+            return;
+        }
+
+        if (! MailSettings::isActive($s)) {
+            Notification::make()->title('Mail gönderimi pasif')
+                ->body('Mail sürücüsünü SMTP seçin, SMTP host ve gönderici e-postayı girip kaydedin.')
+                ->warning()->send();
+
+            return;
+        }
+
+        try {
+            Mail::raw(
+                'Bu bir test mailidir. Bu maili aldıysanız '.SiteSetting::get('site_name', 'Toptanhasat').' SMTP ayarları doğru çalışıyor.',
+                fn ($message) => $message->to($s['recipient'])->subject('Test maili - '.SiteSetting::get('site_name', 'Toptanhasat')),
+            );
+        } catch (Throwable $e) {
+            report($e);
+            Notification::make()->title('Test maili gönderilemedi')
+                ->body(Str::limit($e->getMessage(), 300))
+                ->danger()->persistent()->send();
+
+            return;
+        }
+
+        Notification::make()->title("Test maili {$s['recipient']} adresine gönderildi")->success()->send();
     }
 
     public static function canCreate(): bool

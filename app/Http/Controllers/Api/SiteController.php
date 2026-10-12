@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ContactMessageReceived;
 use App\Models\ContactMessage;
 use App\Models\Page;
+use App\Support\MailSettings;
 use App\Support\SiteData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class SiteController extends Controller
 {
@@ -53,7 +57,19 @@ class SiteController extends Controller
             'message.max' => 'Mesaj en fazla 3000 karakter olabilir.',
         ]);
 
-        ContactMessage::create([...$data, 'ip_address' => $request->ip()]);
+        $contact = ContactMessage::create([...$data, 'ip_address' => $request->ip()]);
+
+        // Panelde alıcı adresi ve SMTP ayarlıysa mesaj maille de iletilir (yanıttan sonra; hata formu bozmaz)
+        $recipient = MailSettings::get()['recipient'];
+        if (filled($recipient) && MailSettings::isActive()) {
+            dispatch(function () use ($recipient, $contact) {
+                try {
+                    Mail::to($recipient)->send(new ContactMessageReceived($contact));
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            })->afterResponse();
+        }
 
         return response()->json(['message' => 'Mesajınız alındı.'], 201);
     }

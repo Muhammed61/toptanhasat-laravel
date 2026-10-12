@@ -4,6 +4,7 @@ namespace App\Filament\Resources\SiteSettings\Pages;
 
 use App\Filament\Resources\SiteSettings\SiteSettingResource;
 use App\Models\SiteSetting;
+use App\Support\MailSettings;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
@@ -22,7 +23,33 @@ class EditSiteSettings extends EditRecord
     {
         $data['data']['messaging_enabled'] ??= true;
 
+        $data['data']['mail'] = [
+            'driver' => 'log',
+            'encryption' => 'tls',
+            'port' => 587,
+            ...($data['data']['mail'] ?? []),
+            'password' => null, // kayıtlı şifre tarayıcıya gönderilmez
+        ];
+
         return $data;
+    }
+
+    /** SMTP şifresi: boş bırakıldıysa kayıtlı (şifreli) değer korunur, yazıldıysa şifrelenip saklanır */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $password = $data['data']['mail']['password'] ?? null;
+
+        $data['data']['mail']['password'] = filled($password)
+            ? MailSettings::encrypt($password)
+            : data_get($this->getRecord()->data, 'mail.password');
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        MailSettings::apply();
+        $this->data['data']['mail']['password'] = null; // kaydedilen şifre ekranda kalmasın
     }
 
     public function getTitle(): string
