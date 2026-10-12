@@ -7,6 +7,7 @@ use App\Models\Listing;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Notifications\ListingApprovedNotification;
+use App\Notifications\ListingRejectedNotification;
 use Database\Seeders\CitySeeder;
 use Database\Seeders\ContentSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -94,5 +95,50 @@ class ListingApprovedMailTest extends TestCase
         app()->terminate();
 
         Notification::assertNothingSent();
+    }
+
+    public function test_owner_is_mailed_with_reason_when_admin_rejects(): void
+    {
+        $this->enableMail();
+        $listing = Listing::factory()->for($this->owner)->create(['product' => 'Domates', 'amount' => 5, 'unit' => 'ton']);
+
+        Livewire::actingAs($this->admin)
+            ->test(ListListings::class)
+            ->callAction(TestAction::make('reject')->table($listing), ['reason' => 'Fiyat bilgisi eksik'])
+            ->assertHasNoFormErrors();
+        app()->terminate();
+
+        Notification::assertSentTo($this->owner, ListingRejectedNotification::class, function (ListingRejectedNotification $n) use ($listing) {
+            $mail = $n->toMail($this->owner);
+
+            return $mail->subject === '"5 ton Domates" ilanınız yayına alınmadı'
+                && in_array('Sebep: Fiyat bilgisi eksik', $mail->introLines, true)
+                && $mail->actionUrl === rtrim(config('app.frontend_url'), '/')."/ilanlarim/{$listing->id}/duzenle";
+        });
+    }
+
+    public function test_rejecting_again_with_same_reason_does_not_mail_twice(): void
+    {
+        $this->enableMail();
+        $listing = Listing::factory()->for($this->owner)->create();
+
+        $listing->reject($this->admin, 'Eksik bilgi');
+        $listing->reject($this->admin, 'Eksik bilgi');
+        $listing->reject($this->admin, 'Kategori yanlış'); // sebep değişirse yeni mail
+        app()->terminate();
+
+        Notification::assertSentToTimes($this->owner, ListingRejectedNotification::class, 2);
+    }
+
+    public function test_public_listing_includes_owner_photo(): void
+    {
+        $listing = Listing::factory()->for($this->owner)->create();
+        $listing->approve($this->admin);
+
+        $this->getJson("/api/listings/{$listing->id}")->assertOk()->assertJsonPath('owner.avatar_url', null);
+
+        $this->owner->forceFill(['avatar_path' => 'avatars/mehmet.jpg'])->saveQuietly();
+        $this->getJson("/api/listings/{$listing->id}")
+            ->assertJsonPath('owner.avatar_url', fn ($url) => str_ends_with($url, '/storage/avatars/mehmet.jpg'));
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ListingStatus;
 use App\Enums\ListingType;
 use App\Notifications\ListingApprovedNotification;
+use App\Notifications\ListingRejectedNotification;
 use App\Support\MailSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -119,11 +120,18 @@ class Listing extends Model
 
     public function reject(User $admin, string $reason): void
     {
+        $alreadySent = $this->status === ListingStatus::Rejected && $this->rejection_reason === $reason;
+
         $this->forceFill([
             'status' => ListingStatus::Rejected,
             'rejection_reason' => $reason,
             'reviewed_at' => now(),
             'reviewed_by' => $admin->id,
         ])->save();
+
+        // Sahibine red sebebiyle bilgi maili (aynı sebeple tekrar reddedilirse ikinci kez gitmez)
+        if (! $alreadySent && $owner = $this->user) {
+            MailSettings::sendLater(fn () => $owner->notify(new ListingRejectedNotification($this)));
+        }
     }
 }

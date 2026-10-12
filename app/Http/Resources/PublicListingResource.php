@@ -39,6 +39,7 @@ class PublicListingResource extends JsonResource
             'owner' => [
                 'name' => $owner->first_name.' '.Str::upper(mb_substr($owner->last_name, 0, 1)).'.',
                 'member_since' => $owner->created_at->toDateString(),
+                'avatar_url' => $owner->avatarUrl(),
             ],
             'is_own' => $request->user('sanctum')?->id === $this->user_id,
             // Sahibi/admin onaysız ilanı önizlerken uyarı göstermek için
