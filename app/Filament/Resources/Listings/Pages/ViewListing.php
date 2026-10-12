@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Listings\Pages;
 
 use App\Filament\Resources\Conversations\ConversationResource;
+use App\Filament\Resources\ListingComments\ListingCommentResource;
 use App\Filament\Resources\Listings\ListingActions;
 use App\Filament\Resources\Listings\ListingResource;
 use Filament\Actions\Action;
@@ -30,6 +31,12 @@ class ViewListing extends ViewRecord
                 ->color('gray')
                 ->visible(fn () => $this->getRecord()->conversations()->exists())
                 ->url(fn () => ConversationResource::getUrl('index', ['filters' => ['listing' => ['value' => $this->getRecord()->getKey()]]])),
+            Action::make('comments')
+                ->label(fn () => 'Yorumlar ('.$this->getRecord()->comments()->count().')')
+                ->icon('heroicon-o-chat-bubble-bottom-center-text')
+                ->color('gray')
+                ->visible(fn () => $this->getRecord()->comments()->exists())
+                ->url(fn () => ListingCommentResource::getUrl('index', ['filters' => ['listing' => ['value' => $this->getRecord()->getKey()]]])),
             // Onaysız ilan da adminlere sitede önizleme olarak açılır
             Action::make('viewOnSite')
                 ->label('Sitede gör')

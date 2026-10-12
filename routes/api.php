@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ConversationController;
+use App\Http\Controllers\Api\ListingCommentController;
 use App\Http\Controllers\Api\ListingController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfileController;
@@ -53,6 +54,10 @@ Route::middleware('auth:sanctum')->group(function () {
 // Yayındaki ilanlar (herkese açık)
 Route::get('/listings', [PublicListingController::class, 'index']);
 Route::get('/listings/{listing}', [PublicListingController::class, 'show'])->whereNumber('listing');
+
+// İlan yorumları: herkes okur/yazar (üyelik ve onay yok); IP başına dakikada 5 yorum
+Route::get('/listings/{listing}/comments', [ListingCommentController::class, 'index'])->whereNumber('listing');
+Route::post('/listings/{listing}/comments', [ListingCommentController::class, 'store'])->whereNumber('listing')->middleware('throttle:5,1');
 
 // İl / ilçe
 Route::get('/cities', [CityController::class, 'index']);

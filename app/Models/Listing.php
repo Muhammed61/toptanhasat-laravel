@@ -72,6 +72,11 @@ class Listing extends Model
         return $this->hasMany(Conversation::class);
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(ListingComment::class);
+    }
+
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
