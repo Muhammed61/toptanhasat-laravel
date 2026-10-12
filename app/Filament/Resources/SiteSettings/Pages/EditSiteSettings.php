@@ -28,20 +28,19 @@ class EditSiteSettings extends EditRecord
             'encryption' => 'tls',
             'port' => 587,
             ...($data['data']['mail'] ?? []),
-            'password' => null, // kayıtlı şifre tarayıcıya gönderilmez
+            // Kayıtlı şifre çözülüp alanda gizli gösterilir (göz ikonuyla görünür)
+            'password' => MailSettings::get()['password'],
         ];
 
         return $data;
     }
 
-    /** SMTP şifresi: boş bırakıldıysa kayıtlı (şifreli) değer korunur, yazıldıysa şifrelenip saklanır */
+    /** SMTP şifresi alanda ne yazıyorsa o; veritabanına şifrelenerek yazılır (boşsa şifre yok) */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $password = $data['data']['mail']['password'] ?? null;
+        $password = (string) ($data['data']['mail']['password'] ?? '');
 
-        $data['data']['mail']['password'] = filled($password)
-            ? MailSettings::encrypt($password)
-            : data_get($this->getRecord()->data, 'mail.password');
+        $data['data']['mail']['password'] = $password !== '' ? MailSettings::encrypt($password) : null;
 
         return $data;
     }
@@ -49,7 +48,6 @@ class EditSiteSettings extends EditRecord
     protected function afterSave(): void
     {
         MailSettings::apply();
-        $this->data['data']['mail']['password'] = null; // kaydedilen şifre ekranda kalmasın
     }
 
     public function getTitle(): string

@@ -60,7 +60,7 @@ class MailSettingsTest extends TestCase
             ->fillForm($this->smtpForm())
             ->call('save')
             ->assertHasNoFormErrors()
-            ->assertSchemaStateSet(['data.mail.password' => null]); // kaydedilen şifre ekranda kalmaz
+            ->assertSchemaStateSet(['data.mail.password' => 'gizli-sifre-123']); // kayıttan sonra alanda kalır
 
         $stored = SiteSetting::get('mail.password');
         $this->assertNotSame('gizli-sifre-123', $stored);
@@ -75,15 +75,24 @@ class MailSettingsTest extends TestCase
         $this->assertSame('gizli-sifre-123', config('mail.mailers.smtp.password'));
         $this->assertSame('gonderen@example.com', config('mail.from.address'));
 
-        // Form açılırken kayıtlı şifre tarayıcıya gönderilmez; boş kaydedince korunur
+        // Form açılınca kayıtlı şifre alanda (gizli, göster/gizle ile) gelir; başka alan değişince korunur
         Livewire::actingAs($this->admin)
             ->test(EditSiteSettings::class)
-            ->assertSchemaStateSet(['data.mail.password' => null, 'data.mail.host' => 'smtp.example.com'])
+            ->assertSchemaStateSet(['data.mail.password' => 'gizli-sifre-123', 'data.mail.host' => 'smtp.example.com'])
             ->fillForm(['data.mail.host' => 'smtp.gmail.com'])
             ->call('save')
             ->assertHasNoFormErrors();
         $this->assertSame('gizli-sifre-123', MailSettings::get()['password']);
         $this->assertSame('smtp.gmail.com', MailSettings::get()['host']);
+
+        // Şifre değiştirilip kaydedilir; alan silinirse şifre kaldırılır
+        Livewire::actingAs($this->admin)->test(EditSiteSettings::class)
+            ->fillForm(['data.mail.password' => 'yeni-sifre-456'])->call('save');
+        $this->assertSame('yeni-sifre-456', MailSettings::get()['password']);
+
+        Livewire::actingAs($this->admin)->test(EditSiteSettings::class)
+            ->fillForm(['data.mail.password' => ''])->call('save');
+        $this->assertSame('', MailSettings::get()['password']);
     }
 
     public function test_mail_settings_are_not_public(): void
