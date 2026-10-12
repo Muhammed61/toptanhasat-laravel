@@ -14,6 +14,20 @@
     ];
 @endphp
 
+{{-- Siteyi yeni sekmede aç --}}
+<x-filament::icon-button
+    tag="a"
+    :href="config('app.frontend_url')"
+    target="_blank"
+    rel="noopener"
+    color="gray"
+    :icon="Heroicon::OutlinedArrowTopRightOnSquare"
+    icon-size="lg"
+    label="Siteyi görüntüle"
+    tooltip="Siteyi görüntüle"
+    class="th-topbar-site-link"
+/>
+
 <div
     x-data="{ theme: localStorage.getItem('theme') || @js(filament()->getDefaultThemeMode()->value) }"
     x-init="$watch('theme', (value) => $dispatch('theme-changed', value))"
