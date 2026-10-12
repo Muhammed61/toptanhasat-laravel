@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\ListingController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicListingController;
 use App\Http\Controllers\Api\SiteController;
@@ -15,6 +16,10 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
+    // Şifremi unuttum
+    Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,1');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
 });
 
 Route::middleware('auth:sanctum')->group(function () {

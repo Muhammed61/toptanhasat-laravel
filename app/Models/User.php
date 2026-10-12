@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -108,5 +109,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
     public function getFilamentName(): string
     {
         return $this->fullName();
+    }
+
+    /** Türkçe, Vue sitesindeki sıfırlama sayfasına giden mail */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }
