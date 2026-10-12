@@ -22,11 +22,17 @@ php artisan key:generate
 `.env` içinde veritabanı bilgilerini girin (varsayılan: `toptanhasat`, kullanıcı `root`), sonra:
 
 ```sh
-php artisan migrate --seed   # tablolar + 81 il / 973 ilçe + varsayılan site içerikleri
+php artisan migrate --seed   # tablolar + 81 il / 973 ilçe + varsayılan site içerikleri (+ admin, aşağıya bakın)
 php artisan storage:link     # yüklenen logo vb. dosyalar için
-php artisan admin:create     # panel yöneticisi oluşturur
 php artisan serve            # http://localhost:8000
 ```
+
+**Admin hesabı** iki yoldan oluşturulabilir:
+
+- `.env`'e `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME`, `ADMIN_PHONE` yazıp
+  `php artisan db:seed --force` (AdminSeeder). E-posta zaten kayıtlıysa o üye admin yapılır; tekrar
+  çalıştırmak ikinci hesap açmaz, şifreyi değiştirmez. Sonra `ADMIN_PASSWORD`'ü `.env`'den silebilirsiniz.
+- ya da soru sorarak: `php artisan admin:create`
 
 Panel: http://localhost:8000/admin
 
@@ -55,6 +61,7 @@ Ardından:
 ```sh
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
+php artisan db:seed --force          # il/ilçe, içerikler ve .env'deki ADMIN_* ile admin hesabı
 php artisan storage:link
 php artisan config:cache && php artisan route:cache
 ```
