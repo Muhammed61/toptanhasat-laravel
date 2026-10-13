@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicListingController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Controllers\Api\SitemapController;
 use App\Http\Middleware\EnsureMessagingEnabled;
 use Illuminate\Support\Facades\Route;
 
@@ -66,4 +67,6 @@ Route::get('/cities/{city}/districts', [CityController::class, 'districts']);
 // Panelden yönetilen site içeriği
 Route::get('/site', [SiteController::class, 'show']);
 Route::get('/pages/{slug}', [SiteController::class, 'page']);
+// Arama motorları için site haritası verisi (sitemap.xml web sitesinde üretilir)
+Route::get('/sitemap', SitemapController::class)->middleware('throttle:30,1');
 Route::post('/contact', [SiteController::class, 'contact'])->middleware('throttle:5,1');
