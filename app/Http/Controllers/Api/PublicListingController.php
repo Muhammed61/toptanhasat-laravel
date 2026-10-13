@@ -18,7 +18,14 @@ use Illuminate\Validation\Rule;
 class PublicListingController extends Controller
 {
     /** Ana sayfadaki miktar seçenekleri, kg cinsinden [en az, en fazla] */
+    /** Miktar filtresi, kg cinsinden [en az, en çok]; küçük miktarlar değerli ürünler (kuruyemiş vb.) için */
     public const AMOUNT_RANGES = [
+        '0-50kg' => [0, 50],
+        '50-100kg' => [50, 100],
+        '100-200kg' => [100, 200],
+        '200-300kg' => [200, 300],
+        '300-400kg' => [300, 400],
+        '400-500kg' => [400, 500],
         '500kg-1ton' => [500, 1000],
         '1-5ton' => [1000, 5000],
         '5-10ton' => [5000, 10000],

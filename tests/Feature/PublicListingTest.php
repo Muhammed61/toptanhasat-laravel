@@ -84,6 +84,13 @@ class PublicListingTest extends TestCase
         $this->assertSame([$hazelnut->id], $ids('amount=500kg-1ton'));
         $this->assertSame([$tomato->id], $ids('amount=1-5ton'));
         $this->assertSame([$wanted->id], $ids('amount=10ton%2B'));
+
+        // Küçük miktarlar (kg ya da ton girilmiş olabilir)
+        $saffron = $this->approved(['amount' => 40, 'unit' => 'kg']);
+        $walnut = $this->approved(['amount' => 0.25, 'unit' => 'ton']); // 250 kg
+        $this->assertSame([$saffron->id], $ids('amount=0-50kg'));
+        $this->assertSame([$walnut->id], $ids('amount=200-300kg'));
+        $this->assertSame([], $ids('amount=50-100kg'));
     }
 
     public function test_listing_is_paginated_newest_first(): void
