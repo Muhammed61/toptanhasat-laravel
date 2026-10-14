@@ -38,14 +38,14 @@ return [
             'report' => false,
         ],
 
-        // Yüklenen logo, favicon, profil fotoğrafları. Normalde web sunucusu `public/storage`
-        // bağlantısından (storage:link) verir; bağlantı yoksa (örn. yeni deploy) Laravel kendisi sunar.
+        // Dışarıdan yüklenen tüm görseller (logo, favicon, paylaşım görseli, profil fotoğrafları):
+        // public/uploads → https://api.toptanhasat.com/uploads/... (storage:link gerekmez).
+        // Yayında bu klasör kalıcı olmalı (Dokploy volume: /app/public/uploads).
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'root' => public_path('uploads'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/uploads',
             'visibility' => 'public',
-            'serve' => true,
             'throw' => false,
             'report' => false,
         ],

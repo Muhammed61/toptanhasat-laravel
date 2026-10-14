@@ -137,7 +137,7 @@ class AdminProfileTest extends TestCase
 
         $this->admin->update(['avatar_path' => 'avatars/ben.jpg']);
         $this->actingAs($this->admin)->getJson('/api/user')
-            ->assertJsonPath('avatar_url', fn ($url) => str_ends_with($url, '/storage/avatars/ben.jpg'));
+            ->assertJsonPath('avatar_url', fn ($url) => str_ends_with($url, '/uploads/avatars/ben.jpg'));
     }
 
     public function test_default_avatar_is_generated_locally(): void

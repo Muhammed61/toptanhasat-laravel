@@ -18,7 +18,7 @@ class SiteData
      * Veri yapısı değişince (yeni alan eklenince) sürümü artırın; eski önbellek kendiliğinden
      * geçersiz olur, yayına alırken önbellek temizlemeyi unutmak sorun çıkarmaz.
      */
-    private const VERSION = 2;
+    private const VERSION = 3;
 
     private const CACHE_KEY = 'site.public.v'.self::VERSION;
 

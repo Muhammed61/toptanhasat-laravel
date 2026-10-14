@@ -139,6 +139,6 @@ class ListingApprovedMailTest extends TestCase
 
         $this->owner->forceFill(['avatar_path' => 'avatars/mehmet.jpg'])->saveQuietly();
         $this->getJson("/api/listings/{$listing->id}")
-            ->assertJsonPath('owner.avatar_url', fn ($url) => str_ends_with($url, '/storage/avatars/mehmet.jpg'));
+            ->assertJsonPath('owner.avatar_url', fn ($url) => str_ends_with($url, '/uploads/avatars/mehmet.jpg'));
     }
 }

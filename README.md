@@ -23,7 +23,6 @@ php artisan key:generate
 
 ```sh
 php artisan migrate --seed   # tablolar + 81 il / 973 ilçe + varsayılan site içerikleri (+ admin, aşağıya bakın)
-php artisan storage:link     # yüklenen logo vb. dosyalar için
 php artisan serve            # http://localhost:8000
 ```
 
@@ -62,7 +61,6 @@ Ardından:
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan db:seed --force          # il/ilçe, içerikler ve .env'deki ADMIN_* ile admin hesabı
-php artisan storage:link
 php artisan config:cache && php artisan route:cache
 ```
 
@@ -73,6 +71,9 @@ php artisan config:cache && php artisan route:cache
   değişen dosyaları commit edin.
 - Cloudflare/nginx arkasında Laravel vekil sunucu başlıklarına güvenir (`bootstrap/app.php` →
   `trustProxies`) ve `APP_URL` https ise adresleri https üretir; `APP_URL=https://...` olmalı.
+- Dışarıdan yüklenen tüm görseller (logo, favicon, paylaşım görseli, profil fotoğrafları) `public/uploads`
+  klasörüne kaydedilir, `https://api.toptanhasat.com/uploads/...` adresinden açılır. Dokploy her deploy'da
+  uygulamayı yeniden kurduğu için bu klasör **kalıcı volume** olmalı (mount path: `/app/public/uploads`).
 - Mail ayarları `.env`'den değil, panelden yapılır: Site Ayarları → SMTP Ayarları.
 
 ## Testler
