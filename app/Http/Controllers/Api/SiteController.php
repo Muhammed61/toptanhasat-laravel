@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 
 class SiteController extends Controller
 {
-    /** Ayarlar + katalog + hal fiyatları (Vue açılışta bir kez alır) */
+    /** Ayarlar + katalog + hal fiyatları (site sunucuda bir kez alır, sayfaya gömer) */
     public function show(): JsonResponse
     {
         return response()->json(SiteData::get());
