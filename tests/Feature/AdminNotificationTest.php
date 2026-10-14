@@ -54,6 +54,7 @@ class AdminNotificationTest extends TestCase
         $this->assertSame(AdminNotifier::TYPE_COMMENT, $notification->data['viewData']['type']);
         $this->assertSame('Yeni yorum: Misafir12345', $notification->data['title']);
         $this->assertStringContainsString('Fiyat nedir?', $notification->data['body']);
+        $this->assertStringStartsWith('/admin/listing-comments?', $notification->data['viewData']['url']);
 
         $this->listing->comments()->create(['name' => 'Site Yöneticisi', 'body' => 'Teşekkürler', 'user_id' => $this->admin->id]);
         $this->assertCount(1, $this->admin->notifications()->get());

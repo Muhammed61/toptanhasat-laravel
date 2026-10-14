@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
  *
  * Kuyruk kullanılmaz (sunucuda kuyruk çalışanı yok); bildirim kayıt anında yazılır.
  * Aynı sohbetteki ardışık mesajlar tek bildirimde toplanır ("3 yeni mesaj"), zil dolmasın.
+ * Bağlantılar alan adısız kaydedilir (/admin/...): bildirim siteden gelen bir istekte
+ * (örn. geliştirmede localhost:5173 proxy'si) üretilse de panelde doğru adrese gider.
  */
 class AdminNotifier
 {
@@ -41,7 +43,7 @@ class AdminNotifier
     public static function comment(ListingComment $comment): void
     {
         $listing = $comment->listing;
-        $url = ListingCommentResource::getUrl('index', ['filters' => ['listing' => ['value' => $comment->listing_id]]]);
+        $url = ListingCommentResource::getUrl('index', ['filters' => ['listing' => ['value' => $comment->listing_id]]], isAbsolute: false);
 
         self::send(
             recipients: self::admins(except: $comment->user_id),
@@ -61,7 +63,7 @@ class AdminNotifier
         $conversation = $message->conversation;
         $sender = $message->sender;
         $key = "conversation:{$conversation->id}";
-        $url = ConversationResource::getUrl('view', ['record' => $conversation]);
+        $url = ConversationResource::getUrl('view', ['record' => $conversation], isAbsolute: false);
         $name = $sender?->fullName() ?? 'Üye';
 
         foreach (self::admins(except: $message->sender_id) as $admin) {
@@ -85,7 +87,7 @@ class AdminNotifier
             recipients: self::admins(),
             type: self::TYPE_CONTACT,
             key: "contact:{$contact->id}",
-            url: ContactMessageResource::getUrl('view', ['record' => $contact]),
+            url: ContactMessageResource::getUrl('view', ['record' => $contact], isAbsolute: false),
             notification: fn () => Notification::make()
                 ->title("İletişim formu: {$contact->name}")
                 ->body($contact->subjectLabel().' · '.Str::limit($contact->message, 120))
