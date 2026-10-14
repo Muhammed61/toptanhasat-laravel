@@ -38,14 +38,10 @@ return [
             'report' => false,
         ],
 
-        // Yüklenen dosyalar (logo, favicon, profil fotoğrafları).
-        // UPLOADS_PATH verilirse public/ altındaki o klasöre yazılır ve doğrudan oradan sunulur
-        // (yayında Dokploy'un kalıcı klasörü: UPLOADS_PATH=uploads → public/uploads).
-        // Boşsa Laravel varsayılanı: storage/app/public + `php artisan storage:link`.
         'public' => [
             'driver' => 'local',
-            'root' => env('UPLOADS_PATH') ? public_path(env('UPLOADS_PATH')) : storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/'.(env('UPLOADS_PATH') ?: 'storage'),
+            'root' => storage_path('app/public'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
