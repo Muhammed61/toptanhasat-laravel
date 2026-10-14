@@ -38,11 +38,14 @@ return [
             'report' => false,
         ],
 
+        // Yüklenen logo, favicon, profil fotoğrafları. Normalde web sunucusu `public/storage`
+        // bağlantısından (storage:link) verir; bağlantı yoksa (örn. yeni deploy) Laravel kendisi sunar.
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
+            'serve' => true,
             'throw' => false,
             'report' => false,
         ],
