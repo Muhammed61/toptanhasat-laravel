@@ -54,6 +54,7 @@ SESSION_DOMAIN=.toptanhasat.com
 SESSION_SECURE_COOKIE=true
 SANCTUM_STATEFUL_DOMAINS=toptanhasat.com,www.toptanhasat.com
 CORS_ALLOWED_ORIGINS=https://toptanhasat.com,https://www.toptanhasat.com
+UPLOADS_PATH=uploads
 ```
 
 Ardından:
@@ -73,6 +74,10 @@ php artisan config:cache && php artisan route:cache
   değişen dosyaları commit edin.
 - Cloudflare/nginx arkasında Laravel vekil sunucu başlıklarına güvenir (`bootstrap/app.php` →
   `trustProxies`) ve `APP_URL` https ise adresleri https üretir; `APP_URL=https://...` olmalı.
+- Yüklenen dosyalar (logo, favicon, profil fotoğrafları): `UPLOADS_PATH=uploads` ile `public/uploads`'a
+  yazılır ve `https://api.toptanhasat.com/uploads/...` adresinden sunulur. Dokploy her deploy'da
+  uygulamayı yeniden kurduğu için bu klasör **kalıcı bir volume** olmalı (mount: `/app/public/uploads`),
+  yoksa yüklenenler silinir. `UPLOADS_PATH` boşsa `storage/app/public` + `storage:link` kullanılır (local).
 - Mail ayarları `.env`'den değil, panelden yapılır: Site Ayarları → SMTP Ayarları.
 
 ## Testler
