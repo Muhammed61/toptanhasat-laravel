@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AdminNotifier;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -9,6 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ListingComment extends Model
 {
     protected $fillable = ['name', 'body', 'user_id', 'ip_address'];
+
+    protected static function booted(): void
+    {
+        // Yönetim paneli bildirimi (zil); bkz. AdminNotifier
+        // Bildirim hatası yorumu/mesajı engellemesin (hata loglanır)
+        static::created(fn (ListingComment $model) => rescue(fn () => AdminNotifier::comment($model)));
+    }
 
     public function listing(): BelongsTo
     {

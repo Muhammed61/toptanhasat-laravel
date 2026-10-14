@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AdminNotifier;
 use Illuminate\Database\Eloquent\Model;
 
 class ContactMessage extends Model
@@ -15,6 +16,13 @@ class ContactMessage extends Model
     ];
 
     protected $fillable = ['name', 'email', 'phone', 'subject', 'message', 'ip_address'];
+
+    protected static function booted(): void
+    {
+        // Yönetim paneli bildirimi (zil); bkz. AdminNotifier
+        // Bildirim hatası yorumu/mesajı engellemesin (hata loglanır)
+        static::created(fn (ContactMessage $model) => rescue(fn () => AdminNotifier::contact($model)));
+    }
 
     protected function casts(): array
     {

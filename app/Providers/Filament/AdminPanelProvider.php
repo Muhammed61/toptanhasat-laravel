@@ -4,12 +4,11 @@ namespace App\Providers\Filament;
 
 use App\Filament\Auth\EditProfile;
 use App\Filament\AvatarProviders\InitialsAvatarProvider;
+use App\Filament\Pages\Notifications;
+use App\Livewire\AdminNotifications;
 use App\Models\SiteSetting;
 use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
-use Filament\Support\Icons\Heroicon;
-use Filament\View\PanelsRenderHook;
-use Illuminate\Support\Facades\Storage;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -17,11 +16,14 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -40,6 +42,9 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Tema seçici menüden çıkarılıp üst bara, profil resminin soluna alındı
             ->themeSwitcher(false)
+            // Sağ üstte zil: yeni ilan yorumu, üye mesajı, iletişim formu (App\Support\AdminNotifier)
+            ->databaseNotifications(livewireComponent: AdminNotifications::class)
+            ->databaseNotificationsPolling('30s')
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.topbar-theme-switcher'))
             // Logonun yanında menüyü daraltma düğmesi (masaüstünde sadece ikonlar kalır)
             ->sidebarCollapsibleOnDesktop()
@@ -66,6 +71,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->pages([
                 Dashboard::class,
+                Notifications::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->middleware([
