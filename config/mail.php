@@ -115,4 +115,12 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    // Mail görünümü: resources/views/vendor/mail (logo, alt bilgi) + themes/toptanhasat.css (renkler)
+    'markdown' => [
+        'theme' => env('MAIL_MARKDOWN_THEME', 'toptanhasat'),
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];
