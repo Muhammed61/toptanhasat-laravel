@@ -145,10 +145,11 @@ class ListingCommentTest extends TestCase
         $this->comment($ayse, 'Ayşe soruyor');         // Ayşe: sahibe, kendisine değil
         $this->comment($veli, 'Veli de soruyor');      // Veli: sahibe ve önceden yazan Ayşe'ye
         $this->comment($this->owner, 'Sahibin cevabı'); // sahip: kendisine değil, Ayşe ve Veli'ye
+        $this->comment(null, 'Misafir tekrar soruyor'); // misafir: sahibe ve yorum yazmış tüm üyelere
 
-        $this->assertSame(['Misafir sorusu', 'Ayşe soruyor', 'Veli de soruyor'], $received($this->owner));
-        $this->assertSame(['Veli de soruyor', 'Sahibin cevabı'], $received($ayse));
-        $this->assertSame(['Sahibin cevabı'], $received($veli));
+        $this->assertSame(['Misafir sorusu', 'Ayşe soruyor', 'Veli de soruyor', 'Misafir tekrar soruyor'], $received($this->owner));
+        $this->assertSame(['Veli de soruyor', 'Sahibin cevabı', 'Misafir tekrar soruyor'], $received($ayse));
+        $this->assertSame(['Sahibin cevabı', 'Misafir tekrar soruyor'], $received($veli));
 
         Notification::assertSentTo($ayse, ListingCommentedNotification::class, function (ListingCommentedNotification $n) use ($ayse) {
             $mail = $n->toMail($ayse);
