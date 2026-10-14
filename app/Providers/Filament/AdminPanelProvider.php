@@ -49,7 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::STYLES_AFTER, fn () => view('filament.admin-styles'))
             // Menü daraltılınca logonun yerine geçen yaprak işareti
             ->renderHook(PanelsRenderHook::TOPBAR_LOGO_AFTER, fn () => view('filament.topbar-logo-mark'))
-            // Hamburgerin sağında: Hoş geldin, kullanıcı · canlı tarih/saat · sunucu bilgisi
+            // Hamburgerin sağında: Hoş geldiniz, kullanıcı · canlı tarih/saat · sunucu bilgisi
             ->renderHook(PanelsRenderHook::TOPBAR_LOGO_AFTER, fn () => view('filament.topbar-info'))
             // Baş harf avatarı sunucuda üretilir (varsayılan ui-avatars.com'a ad gönderiyordu)
             ->defaultAvatarProvider(InitialsAvatarProvider::class)

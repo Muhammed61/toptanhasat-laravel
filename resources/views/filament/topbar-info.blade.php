@@ -40,7 +40,7 @@
 
 <div class="th-topbar-info">
     @if ($user)
-        <span class="th-topbar-welcome">Hoş geldin, <strong>{{ $user->getFilamentName() }}</strong></span>
+        <span class="th-topbar-welcome">Hoş geldiniz, <strong>{{ $user->getFilamentName() }}</strong></span>
     @endif
 
     <span class="th-topbar-sep th-topbar-clock-part" aria-hidden="true"></span>
