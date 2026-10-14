@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\Notifications;
+use App\Filament\Resources\Conversations\ConversationResource;
+use App\Filament\Resources\ListingComments\ListingCommentResource;
 use App\Livewire\AdminNotifications;
 use App\Models\ContactMessage;
 use App\Models\Conversation;
@@ -116,6 +118,34 @@ class AdminNotificationTest extends TestCase
 
         // Zil penceresinde "Tüm bildirimler" bağlantısı
         Livewire::test(AdminNotifications::class)->assertSee('Tüm bildirimleri görüntüle (2)');
+    }
+
+    public function test_menu_badges_count_new_items_and_clear_when_the_page_is_opened(): void
+    {
+        $this->listing->comments()->create(['name' => 'Misafir12345', 'body' => 'Fiyat nedir?']);
+        $this->listing->comments()->create(['name' => 'Misafir54321', 'body' => 'Kaç ton var?']);
+        $conversation = Conversation::create([
+            'listing_id' => $this->listing->id,
+            'listing_title' => $this->listing->title(),
+            'buyer_id' => $this->buyer->id,
+            'seller_id' => $this->seller->id,
+        ]);
+        $conversation->addMessage($this->buyer, 'Merhaba');
+
+        $this->actingAs($this->admin);
+        Filament::setCurrentPanel('admin');
+        $this->assertSame('2', ListingCommentResource::getNavigationBadge());
+        $this->assertSame('1', ConversationResource::getNavigationBadge());
+
+        // İlan Yorumları sayfası açılınca yorum sayısı sıfırlanır, mesajlarınki kalır
+        $this->get(ListingCommentResource::getUrl())->assertOk();
+        $this->assertNull(ListingCommentResource::getNavigationBadge());
+        $this->assertSame('1', ConversationResource::getNavigationBadge());
+
+        // Konuşma açılınca o konuşmanın bildirimi okunur
+        $this->get(ConversationResource::getUrl('view', ['record' => $conversation]))->assertOk();
+        $this->assertNull(ConversationResource::getNavigationBadge());
+        $this->assertSame(0, $this->admin->unreadNotifications()->count());
     }
 
     public function test_members_cannot_open_the_notifications_page(): void

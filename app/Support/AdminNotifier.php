@@ -96,6 +96,24 @@ class AdminNotifier
         );
     }
 
+    /** Giriş yapan yöneticinin bu türdeki okunmamış bildirim sayısı (menüdeki rozetler) */
+    public static function unreadCount(string $type): int
+    {
+        return auth()->user()?->unreadNotifications()->where('data->viewData->type', $type)->count() ?? 0;
+    }
+
+    /**
+     * İlgili sayfa açılınca bildirimler okundu sayılır: liste sayfasında o türün hepsi,
+     * kayıt sayfasında yalnızca o kayda ait olan ($key, örn. "conversation:5").
+     */
+    public static function markSeen(string $type, ?string $key = null): void
+    {
+        auth()->user()?->unreadNotifications()
+            ->where('data->viewData->type', $type)
+            ->when($key, fn ($q) => $q->where('data->viewData->key', $key))
+            ->update(['read_at' => now()]);
+    }
+
     /** @param  iterable<User>  $recipients */
     private static function send(iterable $recipients, string $type, string $key, string $url, \Closure $notification): void
     {

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Conversations\Pages;
 
 use App\Filament\Resources\Conversations\ConversationResource;
 use App\Models\Conversation;
+use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -13,6 +14,13 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewConversation extends ViewRecord
 {
     protected static string $resource = ConversationResource::class;
+
+    /** Konuşma açılınca bu konuşmanın bildirimi okundu sayılır */
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+        AdminNotifier::markSeen(AdminNotifier::TYPE_MESSAGE, 'conversation:'.$this->getRecord()->getKey());
+    }
 
     public function getTitle(): string
     {

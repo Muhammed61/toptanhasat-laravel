@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ContactMessages\Pages;
 
 use App\Filament\Resources\ContactMessages\ContactMessageResource;
 use App\Models\ContactMessage;
+use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -17,6 +18,7 @@ class ViewContactMessage extends ViewRecord
     {
         parent::mount($record);
         $this->getRecord()->markAsRead();
+        AdminNotifier::markSeen(AdminNotifier::TYPE_CONTACT, 'contact:'.$this->getRecord()->getKey());
     }
 
     public function getTitle(): string

@@ -9,6 +9,8 @@ use App\Filament\Resources\Users\UserResource;
 use App\Models\Conversation;
 use App\Models\Listing;
 use App\Models\User;
+use App\Support\AdminNotifier;
+use App\Support\Phone;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -48,14 +50,15 @@ class ConversationResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $today = Conversation::where('last_message_at', '>=', today())->count();
+        // Yeni mesaj gelen konuşmalar (Üye Mesajları sayfası ya da konuşma açılınca sıfırlanır)
+        $new = AdminNotifier::unreadCount(AdminNotifier::TYPE_MESSAGE);
 
-        return $today > 0 ? (string) $today : null;
+        return $new > 0 ? (string) $new : null;
     }
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Bugün mesajlaşılan konuşmalar';
+        return 'Yeni mesaj gelen konuşma';
     }
 
     public static function getEloquentQuery(): Builder
@@ -102,7 +105,7 @@ class ConversationResource extends Resource
             ->url(fn (Conversation $record) => $record->{$relation} ? UserResource::getUrl('edit', ['record' => $record->{$relation}]) : null)
             ->color('primary')
             ->helperText(fn (Conversation $record) => $record->{$relation}
-                ? $record->{$relation}->email.' · '.\App\Support\Phone::display($record->{$relation}->phone)
+                ? $record->{$relation}->email.' · '.Phone::display($record->{$relation}->phone)
                 : null);
     }
 

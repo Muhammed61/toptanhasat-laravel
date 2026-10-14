@@ -6,6 +6,7 @@ use App\Filament\Resources\ListingComments\Pages\ListListingComments;
 use App\Filament\Resources\Listings\ListingResource;
 use App\Models\Listing;
 use App\Models\ListingComment;
+use App\Support\AdminNotifier;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -41,14 +42,15 @@ class ListingCommentResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $today = ListingComment::where('created_at', '>=', today())->count();
+        // Yeni yorum bildirimi (İlan Yorumları sayfası açılınca sıfırlanır)
+        $new = AdminNotifier::unreadCount(AdminNotifier::TYPE_COMMENT);
 
-        return $today > 0 ? (string) $today : null;
+        return $new > 0 ? (string) $new : null;
     }
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Bugün yazılan yorumlar';
+        return 'Yeni yorum';
     }
 
     public static function getEloquentQuery(): Builder

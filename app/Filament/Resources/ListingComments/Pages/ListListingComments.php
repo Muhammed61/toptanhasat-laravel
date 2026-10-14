@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ListingComments\Pages;
 
 use App\Filament\Resources\ListingComments\ListingCommentResource;
 use App\Models\SiteSetting;
+use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -11,6 +12,13 @@ use Filament\Resources\Pages\ListRecords;
 class ListListingComments extends ListRecords
 {
     protected static string $resource = ListingCommentResource::class;
+
+    /** Liste açılınca yeni yorum bildirimleri okundu sayılır (menüdeki sayı sıfırlanır) */
+    public function mount(): void
+    {
+        parent::mount();
+        AdminNotifier::markSeen(AdminNotifier::TYPE_COMMENT);
+    }
 
     public function getSubheading(): ?string
     {

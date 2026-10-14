@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Conversations\Pages;
 
 use App\Filament\Resources\Conversations\ConversationResource;
 use App\Models\SiteSetting;
+use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -11,6 +12,13 @@ use Filament\Resources\Pages\ListRecords;
 class ListConversations extends ListRecords
 {
     protected static string $resource = ConversationResource::class;
+
+    /** Liste açılınca yeni mesaj bildirimleri okundu sayılır (menüdeki sayı sıfırlanır) */
+    public function mount(): void
+    {
+        parent::mount();
+        AdminNotifier::markSeen(AdminNotifier::TYPE_MESSAGE);
+    }
 
     public function getSubheading(): ?string
     {
