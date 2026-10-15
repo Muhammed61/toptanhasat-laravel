@@ -32,7 +32,7 @@ class PublicListingController extends Controller
         '10ton+' => [10000, null],
     ];
 
-    public const PER_PAGE = 20;
+    public const PER_PAGE = 15;
 
     public function index(Request $request): AnonymousResourceCollection
     {

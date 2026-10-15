@@ -157,6 +157,26 @@ class ListingCommentTest extends TestCase
         $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Ertesi gün'])->assertCreated();
     }
 
+    public function test_latest_comments_for_home_page(): void
+    {
+        $pending = Listing::factory()->create(); // onay bekliyor: yorumları görünmez
+        $pending->comments()->create(['name' => 'Gizli', 'body' => 'Onaysız ilana yorum']);
+        foreach (range(1, ListingCommentController::LATEST_LIMIT + 2) as $i) {
+            $this->listing->comments()->create(['name' => "Misafir{$i}", 'body' => "Yorum {$i}"]);
+        }
+
+        $response = $this->getJson('/api/comments/latest')->assertOk()
+            ->assertJsonCount(ListingCommentController::LATEST_LIMIT, 'data')
+            ->assertJsonPath('data.0.body', 'Yorum '.(ListingCommentController::LATEST_LIMIT + 2)) // en yenisi önce
+            ->assertJsonPath('data.0.listing.id', $this->listing->id)
+            ->assertJsonPath('data.0.listing.title', $this->listing->title());
+        $this->assertNotContains('Onaysız ilana yorum', $response->json('data.*.body'));
+
+        // Yorumlar kapalıysa bölüm gizlenir
+        SiteSetting::put('comments_enabled', false);
+        $this->getJson('/api/comments/latest')->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_admin_sees_and_deletes_comments(): void
     {
         $admin = User::factory()->create();

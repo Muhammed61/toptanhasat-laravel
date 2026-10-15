@@ -95,11 +95,11 @@ class PublicListingTest extends TestCase
 
     public function test_listing_is_paginated_newest_first(): void
     {
-        $listings = collect(range(1, 23))->map(fn ($i) => tap($this->approved(), fn ($l) => $l->forceFill(['created_at' => now()->subMinutes(30 - $i)])->save()));
+        $listings = collect(range(1, 18))->map(fn ($i) => tap($this->approved(), fn ($l) => $l->forceFill(['created_at' => now()->subMinutes(30 - $i)])->save()));
 
         $first = $this->getJson('/api/listings')->assertOk();
-        $first->assertJsonCount(20, 'data') // sayfa başına 20
-            ->assertJsonPath('meta.total', 23)
+        $first->assertJsonCount(15, 'data') // sayfa başına 15
+            ->assertJsonPath('meta.total', 18)
             ->assertJsonPath('meta.last_page', 2)
             ->assertJsonPath('data.0.id', $listings->last()->id);
 

@@ -15,6 +15,7 @@ use App\Support\MailSettings;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -28,6 +29,9 @@ use Illuminate\Validation\ValidationException;
 class ListingCommentController extends Controller
 {
     public const PER_PAGE = 20;
+
+    /** Ana sayfadaki "Son yorumlar" bölümünde gösterilen yorum sayısı */
+    public const LATEST_LIMIT = 6;
 
     /** Misafir (üye olmayan) bir IP'den 24 saatte yazılabilecek en fazla yorum */
     public const GUEST_DAILY_LIMIT = 20;
@@ -44,6 +48,36 @@ class ListingCommentController extends Controller
             'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
             // Formda "… olarak yorum yapıyorsunuz" için
             'viewer_name' => $this->authorName($request),
+        ]);
+    }
+
+    /**
+     * Ana sayfadaki "Son yorumlar": yayındaki ilanlara yazılan en yeni yorumlar ve hangi ilana
+     * yazıldıkları. Yorumlar kapalıysa boş liste (bölüm gizlenir).
+     */
+    public function latest(): JsonResponse
+    {
+        if (! SiteSetting::commentsEnabled()) {
+            return response()->json(['data' => []]);
+        }
+
+        $comments = ListingComment::query()
+            ->whereHas('listing', fn ($q) => $q->approved())
+            ->with(['user', 'listing.city', 'listing.district'])
+            ->latest('id')
+            ->limit(self::LATEST_LIMIT)
+            ->get();
+
+        return response()->json([
+            'data' => $comments->map(fn (ListingComment $c) => [
+                ...$this->present($c),
+                'body' => Str::limit($c->body, 160),
+                'listing' => [
+                    'id' => $c->listing->id,
+                    'title' => $c->listing->title(),
+                    'location' => "{$c->listing->district?->name}, {$c->listing->city?->name}",
+                ],
+            ])->values(),
         ]);
     }
 
