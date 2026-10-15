@@ -9,6 +9,7 @@ use App\Models\ListingComment;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Notifications\ListingCommentedNotification;
+use App\Rules\NoLinks;
 use App\Support\GuestName;
 use App\Support\MailSettings;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -18,12 +19,18 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * İlan detayındaki yorumlar: herkes okur ve yazar (üyelik/onay yok). Misafirler IP'ye bağlı
- * "Misafir04217" gibi bir adla görünür. Kötüye kullanıma karşı IP başına hız sınırı (route) ve
- * robotların doldurduğu gizli "website" alanı; admin panelden silinir.
+ * "Misafir04217" gibi bir adla görünür. Kötüye kullanıma (reklam, backlink) karşı:
+ *  - bağlantı / alan adı / e-posta içeren yorum kabul edilmez (NoLinks)
+ *  - IP başına dakikada 5 yorum (route), misafirler için günde GUEST_DAILY_LIMIT yorum
+ *  - aynı kişi aynı ilana aynı yorumu tekrar gönderemez
+ *  - robotların doldurduğu gizli "website" alanı; admin panelden silinir
  */
 class ListingCommentController extends Controller
 {
     public const PER_PAGE = 20;
+
+    /** Misafir (üye olmayan) bir IP'den 24 saatte yazılabilecek en fazla yorum */
+    public const GUEST_DAILY_LIMIT = 20;
 
     public function index(Request $request, Listing $listing): JsonResponse
     {
@@ -48,7 +55,7 @@ class ListingCommentController extends Controller
         $user = $request->user('sanctum');
 
         $data = $request->validate([
-            'body' => ['required', 'string', 'min:2', 'max:1000'],
+            'body' => ['required', 'string', 'min:2', 'max:1000', new NoLinks],
         ], [
             'body.required' => 'Yorumunuzu yazın.',
             'body.min' => 'Yorum çok kısa.',
@@ -59,6 +66,8 @@ class ListingCommentController extends Controller
         if (filled($request->input('website'))) {
             throw ValidationException::withMessages(['body' => 'Yorum gönderilemedi.']);
         }
+
+        $this->ensureNotFlooding($request, $listing, trim($data['body']), $user);
 
         $comment = $listing->comments()->create([
             'name' => $this->authorName($request),
@@ -71,6 +80,33 @@ class ListingCommentController extends Controller
         $this->notifyFollowers($comment, $listing);
 
         return response()->json($this->present($comment), 201);
+    }
+
+    /** Aynı yorumu tekrar gönderme ve misafirler için günlük sınır */
+    private function ensureNotFlooding(Request $request, Listing $listing, string $body, ?User $user): void
+    {
+        $author = fn ($q) => $user ? $q->where('user_id', $user->id) : $q->whereNull('user_id')->where('ip_address', $request->ip());
+        $since = now()->subDay();
+
+        $duplicate = $listing->comments()->where($author)->where('created_at', '>=', $since)
+            ->pluck('body')
+            ->contains(fn (string $old) => self::normalize($old) === self::normalize($body));
+        if ($duplicate) {
+            throw ValidationException::withMessages(['body' => 'Bu yorumu zaten gönderdiniz.']);
+        }
+
+        if (! $user && ListingComment::whereNull('user_id')->where('ip_address', $request->ip())->where('created_at', '>=', $since)->count() >= self::GUEST_DAILY_LIMIT) {
+            // Form hatası olarak döner; sitede yorum kutusunun altında görünür
+            throw ValidationException::withMessages([
+                'body' => 'Bugün çok fazla yorum yazdınız. Lütfen yarın tekrar deneyin ya da üye olun.',
+            ]);
+        }
+    }
+
+    /** Karşılaştırma için: Türkçe küçük harf (İ→i, I→ı), fazla boşluklar tek boşluk */
+    private static function normalize(string $text): string
+    {
+        return preg_replace('/\s+/u', ' ', mb_strtolower(str_replace(['İ', 'I'], ['i', 'ı'], trim($text))));
     }
 
     /** Admin panelden (Site Ayarları / İlan Yorumları) kapatılabilir; yorumlar silinmez */

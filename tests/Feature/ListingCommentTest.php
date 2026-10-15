@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Resources\ListingComments\Pages\ListListingComments;
+use App\Http\Controllers\Api\ListingCommentController;
 use App\Models\Listing;
 use App\Models\ListingComment;
 use App\Models\SiteSetting;
@@ -109,6 +110,51 @@ class ListingCommentTest extends TestCase
             $this->postJson("/api/listings/{$this->listing->id}/comments", ['name' => 'Ayşe', 'body' => "Yorum {$i}"])->assertCreated();
         }
         $this->postJson("/api/listings/{$this->listing->id}/comments", ['name' => 'Ayşe', 'body' => 'Bir tane daha'])->assertStatus(429);
+    }
+
+    public function test_links_and_emails_are_rejected_for_guests_and_members(): void
+    {
+        $url = "/api/listings/{$this->listing->id}/comments";
+
+        $this->postJson($url, ['body' => 'En ucuz gübre için ucuzgubre . com'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.body.0', 'Yorumlarda bağlantı, web sitesi veya e-posta adresi paylaşılamaz.');
+        $this->actingAs($this->owner)->postJson($url, ['body' => 'Bilgi için https://ornek.com'])->assertUnprocessable();
+        $this->actingAs($this->owner)->postJson($url, ['body' => 'Mail: ali@gmail.com'])->assertUnprocessable();
+
+        $this->assertSame(0, ListingComment::count());
+        $this->postJson($url, ['body' => 'Ürün taze. Su ile yıkandı mı?'])->assertCreated();
+    }
+
+    public function test_same_comment_cannot_be_sent_twice(): void
+    {
+        $url = "/api/listings/{$this->listing->id}/comments";
+
+        $this->postJson($url, ['body' => 'Fiyat nedir?'])->assertCreated();
+        $this->postJson($url, ['body' => '  fiyat NEDİR?  '])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.body.0', 'Bu yorumu zaten gönderdiniz.');
+
+        // Başka bir misafir (farklı IP) aynı soruyu sorabilir
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.9'])->postJson($url, ['body' => 'Fiyat nedir?'])->assertCreated();
+        $this->assertSame(2, ListingComment::count());
+    }
+
+    public function test_guests_have_a_daily_comment_limit(): void
+    {
+        foreach (range(1, ListingCommentController::GUEST_DAILY_LIMIT) as $i) {
+            $this->listing->comments()->create(['name' => 'Misafir', 'body' => "Eski yorum {$i}", 'ip_address' => '127.0.0.1']);
+        }
+
+        $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Bir tane daha'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.body.0', 'Bugün çok fazla yorum yazdınız. Lütfen yarın tekrar deneyin ya da üye olun.');
+
+        // Üyeler bu sınıra takılmaz; ertesi gün misafir de yazabilir
+        $this->actingAs($this->owner)->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Üye cevabı'])->assertCreated();
+        app('auth')->forgetGuards();
+        $this->travel(25)->hours();
+        $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Ertesi gün'])->assertCreated();
     }
 
     public function test_admin_sees_and_deletes_comments(): void
