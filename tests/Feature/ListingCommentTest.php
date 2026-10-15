@@ -69,6 +69,24 @@ class ListingCommentTest extends TestCase
             ->assertJsonPath('is_owner', true);
     }
 
+    public function test_member_comments_show_the_profile_photo(): void
+    {
+        $this->owner->forceFill(['avatar_path' => 'avatars/ali.jpg'])->saveQuietly();
+
+        $this->actingAs($this->owner)
+            ->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Evet, olur.'])
+            ->assertCreated()
+            ->assertJsonPath('avatar_url', fn ($url) => str_ends_with($url, '/uploads/avatars/ali.jpg'));
+
+        app('auth')->forgetGuards();
+        $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => 'Misafir sorusu'])->assertCreated();
+
+        $this->getJson("/api/listings/{$this->listing->id}/comments")
+            ->assertOk()
+            ->assertJsonPath('data.0.avatar_url', null) // misafir: baş harf
+            ->assertJsonPath('data.1.avatar_url', fn ($url) => str_ends_with($url, '/uploads/avatars/ali.jpg'));
+    }
+
     public function test_validation_honeypot_and_unpublished_listing(): void
     {
         $this->postJson("/api/listings/{$this->listing->id}/comments", ['body' => ''])

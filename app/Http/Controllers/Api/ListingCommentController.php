@@ -30,7 +30,7 @@ class ListingCommentController extends Controller
         abort_unless($listing->status === ListingStatus::Approved, 404);
         $this->ensureEnabled();
 
-        $page = $listing->comments()->latest('id')->paginate(self::PER_PAGE);
+        $page = $listing->comments()->with('user')->latest('id')->paginate(self::PER_PAGE);
 
         return response()->json([
             'data' => $page->getCollection()->map(fn (ListingComment $c) => $this->present($c->setRelation('listing', $listing)))->values(),
@@ -66,7 +66,7 @@ class ListingCommentController extends Controller
             'user_id' => $user?->id,
             'ip_address' => $request->ip(),
         ]);
-        $comment->setRelation('listing', $listing);
+        $comment->setRelation('listing', $listing)->setRelation('user', $user);
 
         $this->notifyFollowers($comment, $listing);
 
@@ -118,6 +118,8 @@ class ListingCommentController extends Controller
             'name' => $c->name,
             'body' => $c->body,
             'is_owner' => $c->isByListingOwner(),
+            // Üye yorumunda profil fotoğrafı (misafirde ve fotoğrafı olmayan üyede null → baş harf)
+            'avatar_url' => $c->user?->avatarUrl(),
             'created_at' => $c->created_at->toIso8601String(),
         ];
     }
