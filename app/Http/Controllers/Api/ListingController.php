@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreListingRequest;
 use App\Http\Resources\ListingResource;
 use App\Models\Listing;
+use App\Support\AdminMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -22,6 +23,7 @@ class ListingController extends Controller
 
         $listing = $request->user()->listings()->create($data);
         $listing->load(['city', 'district']);
+        AdminMail::newListing($listing);
 
         return (new ListingResource($listing))->response()->setStatusCode(201);
     }
@@ -48,10 +50,15 @@ class ListingController extends Controller
         }
 
         $listing->fill($data);
-        if ($listing->isDirty(array_diff($listing->getFillable(), ['show_phone']))) {
+        $resubmitted = $listing->isDirty(array_diff($listing->getFillable(), ['show_phone']));
+        if ($resubmitted) {
             $listing->resubmit();
         }
         $listing->save();
+
+        if ($resubmitted) {
+            AdminMail::newListing($listing, updated: true);
+        }
 
         return new ListingResource($listing->load(['city', 'district']));
     }

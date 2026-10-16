@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ContactMessageReceived;
 use App\Models\ContactMessage;
 use App\Models\Page;
+use App\Support\AdminMail;
 use App\Support\MailSettings;
 use App\Support\SiteData;
 use Illuminate\Http\JsonResponse;
@@ -60,7 +61,7 @@ class SiteController extends Controller
 
         // Panelde alıcı adresi ve SMTP ayarlıysa mesaj maille de iletilir
         $recipient = MailSettings::get()['recipient'];
-        if (filled($recipient)) {
+        if (filled($recipient) && AdminMail::contactEnabled()) {
             MailSettings::sendLater(fn () => Mail::to($recipient)->send(new ContactMessageReceived($contact)));
         }
 

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\SiteSettings\Pages;
 
 use App\Filament\Resources\SiteSettings\SiteSettingResource;
 use App\Models\SiteSetting;
+use App\Support\AdminMail;
 use App\Support\MailSettings;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
@@ -28,6 +29,7 @@ class EditSiteSettings extends EditRecord
             'driver' => 'log',
             'encryption' => 'tls',
             'port' => 587,
+            'admin_alerts' => AdminMail::defaultEvents(),
             ...($data['data']['mail'] ?? []),
             // Kayıtlı şifre çözülüp alanda gizli gösterilir (göz ikonuyla görünür)
             'password' => MailSettings::get()['password'],

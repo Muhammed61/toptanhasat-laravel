@@ -8,6 +8,7 @@ use App\Http\Resources\ConversationResource;
 use App\Models\Conversation;
 use App\Models\Listing;
 use App\Models\Message;
+use App\Support\AdminMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -83,6 +84,11 @@ class ConversationController extends Controller
             ['seller_id' => $listing->user_id, 'listing_title' => $listing->title()],
         );
         $conversation->addMessage($user, trim($data['body']));
+
+        // Yöneticiye yalnızca yeni başlayan konuşma bildirilir (her mesajda mail gitmez)
+        if ($conversation->wasRecentlyCreated) {
+            AdminMail::conversation($conversation, $user, trim($data['body']));
+        }
 
         return response()->json(['id' => $conversation->id], 201);
     }

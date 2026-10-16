@@ -10,6 +10,7 @@ use App\Models\SiteSetting;
 use App\Models\User;
 use App\Notifications\ListingCommentedNotification;
 use App\Rules\NoLinks;
+use App\Support\AdminMail;
 use App\Support\GuestName;
 use App\Support\MailSettings;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -112,6 +113,9 @@ class ListingCommentController extends Controller
         $comment->setRelation('listing', $listing)->setRelation('user', $user);
 
         $this->notifyFollowers($comment, $listing);
+        if (! $user?->is_admin) {
+            AdminMail::comment($comment);
+        }
 
         return response()->json($this->present($comment), 201);
     }

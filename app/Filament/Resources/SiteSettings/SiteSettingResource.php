@@ -4,13 +4,15 @@ namespace App\Filament\Resources\SiteSettings;
 
 use App\Filament\Resources\SiteSettings\Pages\EditSiteSettings;
 use App\Models\SiteSetting;
+use App\Support\AdminMail;
 use App\Support\MailSettings;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -112,7 +114,7 @@ class SiteSettingResource extends Resource
                                 Grid::make(3)->schema([
                                     TextInput::make('data.mail.recipient')->label('Siteden Gelen Mailler (Alıcı)')
                                         ->email()->maxLength(100)
-                                        ->helperText('İletişim formundan gelen mesajlar bu adrese iletilir.'),
+                                        ->helperText('İletişim formu ve yönetici bildirim mailleri bu adrese gelir.'),
                                     TextInput::make('data.mail.from_address')->label('Gönderici E-posta')
                                         ->email()->maxLength(100)
                                         ->helperText('Maillerin "kimden" adresi. Genelde SMTP kullanıcısıyla aynı olmalı.'),
@@ -136,6 +138,13 @@ class SiteSettingResource extends Resource
                                         ->helperText('Şifre veritabanında şifrelenmiş saklanır. Göz ikonuyla gösterip gizleyebilirsiniz.')
                                         ->columnSpan(3),
                                 ]),
+
+                                CheckboxList::make('data.mail.admin_alerts')
+                                    ->label('Yöneticiye bildirim mailleri')
+                                    ->helperText('Seçili olaylarda "Siteden Gelen Mailler (Alıcı)" adresine mail gider. Üye mesajlarında yalnızca yeni başlayan konuşma bildirilir.')
+                                    ->options(AdminMail::EVENTS)
+                                    ->columns(3)
+                                    ->bulkToggleable(),
 
                                 Actions::make([
                                     Action::make('sendTestMail')
