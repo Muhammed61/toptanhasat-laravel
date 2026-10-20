@@ -4,8 +4,11 @@ namespace App\Support;
 
 use App\Filament\Resources\ContactMessages\ContactMessageResource;
 use App\Filament\Resources\Conversations\ConversationResource;
+use App\Filament\Resources\ForumTopics\ForumTopicResource;
 use App\Filament\Resources\ListingComments\ListingCommentResource;
 use App\Models\ContactMessage;
+use App\Models\ForumReply;
+use App\Models\ForumTopic;
 use App\Models\ListingComment;
 use App\Models\Message;
 use App\Models\User;
@@ -33,11 +36,14 @@ class AdminNotifier
 
     public const TYPE_CONTACT = 'contact';
 
+    public const TYPE_FORUM = 'forum';
+
     /** Bildirimler sayfasındaki tür filtresi */
     public const TYPES = [
         self::TYPE_COMMENT => 'İlan yorumu',
         self::TYPE_MESSAGE => 'Üye mesajı',
         self::TYPE_CONTACT => 'İletişim formu',
+        self::TYPE_FORUM => 'Forum',
     ];
 
     public static function comment(ListingComment $comment): void
@@ -93,6 +99,24 @@ class AdminNotifier
                 ->body($contact->subjectLabel().' · '.Str::limit($contact->message, 120))
                 ->icon(Heroicon::OutlinedEnvelope)
                 ->iconColor('warning'),
+        );
+    }
+
+    /** Yeni forum konusu ya da cevabı (aynı konudaki her olay ayrı bildirim; anahtar konuya göre) */
+    public static function forum(ForumTopic $topic, ?ForumReply $reply = null): void
+    {
+        $author = $reply ? $reply->user : $topic->user;
+
+        self::send(
+            recipients: self::admins(except: $author?->id),
+            type: self::TYPE_FORUM,
+            key: "forum:{$topic->id}",
+            url: ForumTopicResource::getUrl('view', ['record' => $topic], isAbsolute: false),
+            notification: fn () => Notification::make()
+                ->title($reply ? "Forumda yeni cevap: {$author?->fullName()}" : "Yeni forum konusu: {$author?->fullName()}")
+                ->body("\"{$topic->title}\"".($reply ? ' · '.Str::limit($reply->body, 120) : ''))
+                ->icon(Heroicon::OutlinedChatBubbleOvalLeftEllipsis)
+                ->iconColor('success'),
         );
     }
 

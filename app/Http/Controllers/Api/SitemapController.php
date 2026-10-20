@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ForumTopic;
 use App\Models\Listing;
 use App\Models\Page;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +48,17 @@ class SitemapController extends Controller
                 'updated_at' => $listing->updated_at?->toIso8601String(),
             ]);
 
-        return response()->json(['pages' => $pages, 'listings' => $listings]);
+        // Forum: liste sayfası + konular (en son hareket edenler önce)
+        $forum = ForumTopic::query()
+            ->latest('last_activity_at')
+            ->limit(self::MAX_LISTINGS)
+            ->get(['id', 'last_activity_at', 'updated_at'])
+            ->map(fn (ForumTopic $topic) => [
+                'path' => "/forum/{$topic->id}",
+                'updated_at' => ($topic->last_activity_at ?? $topic->updated_at)?->toIso8601String(),
+            ])
+            ->prepend(['path' => '/forum', 'updated_at' => ForumTopic::max('last_activity_at') ? now()->parse(ForumTopic::max('last_activity_at'))->toIso8601String() : null]);
+
+        return response()->json(['pages' => $pages, 'listings' => $listings, 'forum' => $forum]);
     }
 }

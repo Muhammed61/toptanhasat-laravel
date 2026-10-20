@@ -3,11 +3,14 @@
 namespace App\Support;
 
 use App\Filament\Resources\Conversations\ConversationResource;
+use App\Filament\Resources\ForumTopics\ForumTopicResource;
 use App\Filament\Resources\ListingComments\ListingCommentResource;
 use App\Filament\Resources\Listings\ListingResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Mail\AdminAlert;
 use App\Models\Conversation;
+use App\Models\ForumReply;
+use App\Models\ForumTopic;
 use App\Models\Listing;
 use App\Models\ListingComment;
 use App\Models\SiteSetting;
@@ -29,6 +32,7 @@ class AdminMail
         'comment' => 'Yeni yorum',
         'conversation' => 'Yeni mesajlaşma başladı',
         'contact' => 'İletişim formu mesajı',
+        'forum' => 'Forum (yeni konu ve cevap)',
     ];
 
     /** Panelde seçim hiç kaydedilmediyse hepsi açık */
@@ -92,6 +96,26 @@ class AdminMail
             'İlan' => $conversation->listingTitle(),
             'Mesaj' => Str::limit($body, 500),
         ], 'Konuşmayı görüntüle', ConversationResource::getUrl('view', ['record' => $conversation], isAbsolute: false));
+    }
+
+    public static function forum(ForumTopic $topic, ?ForumReply $reply = null): void
+    {
+        $topic->loadMissing(['user', 'category']);
+        $author = $reply ? $reply->user : $topic->user;
+
+        self::send(
+            'forum',
+            ($reply ? 'Forumda yeni cevap: ' : 'Yeni forum konusu: ').$topic->title,
+            $reply ? 'Bir forum konusuna yeni cevap yazıldı.' : 'Forumda yeni bir konu açıldı.',
+            array_filter([
+                'Konu' => $topic->title,
+                'Kategori' => $topic->category?->name ?? '-',
+                'Yazan' => $author?->fullName() ?? '-',
+                'Metin' => Str::limit($reply ? $reply->body : $topic->body, 500),
+            ]),
+            'Konuyu görüntüle',
+            ForumTopicResource::getUrl('view', ['record' => $topic], isAbsolute: false),
+        );
     }
 
     /** İletişim formu maili ayrı (ContactMessageReceived); yalnızca seçime bakılır */

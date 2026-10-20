@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ConversationController;
+use App\Http\Controllers\Api\ForumController;
 use App\Http\Controllers\Api\ListingCommentController;
 use App\Http\Controllers\Api\ListingController;
 use App\Http\Controllers\Api\PasswordResetController;
@@ -25,6 +26,10 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    // Forum: konu açmak ve cevap yazmak üyelik ister
+    Route::post('/forum', [ForumController::class, 'store'])->middleware('throttle:5,1');
+    Route::post('/forum/{topic}/replies', [ForumController::class, 'reply'])->whereNumber('topic')->middleware('throttle:10,1');
+
     Route::get('/user', [AuthController::class, 'me']);
 
     // Profilim
@@ -59,6 +64,10 @@ Route::get('/listings/{listing}', [PublicListingController::class, 'show'])->whe
 // İlan yorumları: herkes okur/yazar (üyelik ve onay yok); IP başına dakikada 5 yorum
 Route::get('/listings/{listing}/comments', [ListingCommentController::class, 'index'])->whereNumber('listing');
 Route::get('/comments/latest', [ListingCommentController::class, 'latest']);
+
+// Forum (herkes okur)
+Route::get('/forum', [ForumController::class, 'index']);
+Route::get('/forum/{topic}', [ForumController::class, 'show'])->whereNumber('topic');
 Route::post('/listings/{listing}/comments', [ListingCommentController::class, 'store'])->whereNumber('listing')->middleware('throttle:5,1');
 
 // İl / ilçe
