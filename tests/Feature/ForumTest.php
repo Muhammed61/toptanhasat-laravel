@@ -5,10 +5,8 @@ namespace Tests\Feature;
 use App\Filament\Resources\ForumTopics\Pages\ListForumTopics;
 use App\Filament\Resources\ForumTopics\Pages\ViewForumTopic;
 use App\Http\Controllers\Api\ForumController;
-use App\Models\Category;
 use App\Models\ForumReply;
 use App\Models\ForumTopic;
-use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Notifications\ForumRepliedNotification;
@@ -216,26 +214,38 @@ class ForumTest extends TestCase
         $this->assertFalse(ForumTopic::find($id)->isTeam());
     }
 
-    public function test_topics_can_be_filed_under_a_product_sub_heading(): void
+    public function test_topics_have_sub_topics_inside(): void
     {
-        // Kategoriler sayfasından eklenen ürün forumda alt başlık olur
-        Product::create(['category_id' => Category::where('slug', 'tahil')->value('id'), 'name' => 'Çeltik', 'sort' => 9, 'is_active' => true]);
+        // "Çeltik" konusu açılır, içinde "Çeltik fiyatları" ve "Çeltik ilaçları" alt başlıkları
+        $parent = $this->openTopic($this->ayse, ['category' => 'tahil', 'title' => 'Çeltik', 'body' => 'Çeltik ekenler için genel konu.']);
+        $price = $this->openTopic($this->veli, ['category' => null, 'parent' => $parent, 'title' => 'Çeltik fiyatları', 'body' => 'Bu yıl çeltik kaç liradan alınıyor?']);
+        $this->openTopic($this->ayse, ['category' => null, 'parent' => $parent, 'title' => 'Çeltik ilaçları', 'body' => 'Yabancı otlara karşı ne kullanıyorsunuz?']);
 
-        $price = $this->openTopic($this->ayse, ['category' => 'tahil', 'product' => 'Çeltik', 'title' => 'Çeltik fiyatları']);
-        $this->openTopic($this->ayse, ['category' => 'tahil', 'product' => 'Çeltik', 'title' => 'Çeltik ilaçları']);
-        $this->openTopic($this->veli, ['category' => 'tahil', 'title' => 'Genel tahıl sorusu']);
-
-        // Başka kategorinin ürünü seçilemez
-        $this->as($this->ayse)->postJson('/api/forum', [
-            'category' => 'tahil', 'product' => 'Domates', 'title' => 'Yanlış alt başlık', 'body' => 'Bu konu yanlış alt başlıkta.',
-        ])->assertUnprocessable()->assertJsonPath('errors.product.0', 'Bu kategoride böyle bir alt başlık yok.');
+        // Alt başlığın altına yeni alt başlık açılmaz
+        $this->as($this->ayse)->postJson('/api/forum', ['parent' => $price, 'title' => 'Üçüncü seviye', 'body' => 'Bu açılmamalı, tek seviye.'])
+            ->assertUnprocessable()->assertJsonPath('errors.parent.0', 'Bu konunun altına başlık açılamaz.');
         app('auth')->forgetGuards();
 
+        // Listede yalnızca üst konu; alt başlık sayısıyla
         $this->getJson('/api/forum?kategori=tahil')
-            ->assertJsonPath('meta.total', 3)
-            ->assertJsonPath('product_counts.Çeltik', 2);
-        $titles = $this->getJson('/api/forum?kategori=tahil&urun=Çeltik')->json('data.*.title');
-        $this->assertEqualsCanonicalizing(['Çeltik fiyatları', 'Çeltik ilaçları'], $titles);
-        $this->getJson("/api/forum/{$price}")->assertJsonPath('topic.product', 'Çeltik');
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.title', 'Çeltik')
+            ->assertJsonPath('data.0.subtopics_count', 2);
+
+        $thread = $this->getJson("/api/forum/{$parent}")->assertJsonCount(2, 'subtopics');
+        $this->assertEqualsCanonicalizing(['Çeltik fiyatları', 'Çeltik ilaçları'], $thread->json('subtopics.*.title'));
+
+        // Alt başlık üst konunun kategorisini alır, üst konuyu gösterir; cevabı üst konuyu da yukarı taşır
+        $this->getJson("/api/forum/{$price}")
+            ->assertJsonPath('topic.category.key', 'tahil')
+            ->assertJsonPath('topic.parent.title', 'Çeltik')
+            ->assertJsonCount(0, 'subtopics');
+        $this->travel(5)->minutes();
+        $this->as($this->ayse)->postJson("/api/forum/{$price}/replies", ['body' => 'Geçen hafta 20 TL idi.'])->assertCreated();
+        $this->assertTrue(ForumTopic::find($parent)->last_activity_at->equalTo(ForumReply::latest('id')->first()->created_at));
+
+        // Üst konu silinince alt başlıkları da gider
+        ForumTopic::find($parent)->delete();
+        $this->assertSame(0, ForumTopic::count());
     }
 }

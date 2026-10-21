@@ -6,6 +6,7 @@
     /** @var \App\Models\ForumTopic $topic */
     $topic = $getRecord();
     $replies = $topic->replies()->with('user')->get();
+    $subtopics = $topic->subtopics()->with('user')->latest('last_activity_at')->get();
 @endphp
 
 <div class="th-forum">
@@ -16,6 +17,20 @@
         </div>
         <div class="th-forum-body">{{ $topic->body }}</div>
     </article>
+
+    @if ($subtopics->isNotEmpty())
+        <div class="th-forum-post">
+            <div class="th-forum-meta"><strong>Alt başlıklar ({{ $subtopics->count() }})</strong></div>
+            <ul class="th-forum-subtopics">
+                @foreach ($subtopics as $sub)
+                    <li>
+                        <a href="{{ \App\Filament\Resources\ForumTopics\ForumTopicResource::getUrl('view', ['record' => $sub]) }}">{{ $sub->title }}</a>
+                        <span class="th-forum-meta">· {{ $sub->authorName() }} · {{ $sub->replies_count }} cevap</span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     @forelse ($replies as $reply)
         <article class="th-forum-post" wire:key="reply-{{ $reply->id }}">
@@ -56,6 +71,9 @@
     .th-forum-delete:hover { color: var(--danger-600); background: var(--danger-50); }
     .th-forum-delete svg { width: 1rem; height: 1rem; }
     .th-forum-empty { font-size: 0.875rem; color: var(--gray-500); }
+    .th-forum-subtopics { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.375rem; font-size: 0.875rem; }
+    .th-forum-subtopics a { color: var(--primary-600); font-weight: 600; }
+    .th-forum-subtopics .th-forum-meta { display: inline; }
     .dark .th-forum-post { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.1); }
     .dark .th-forum-post--topic { background: rgba(45, 106, 79, 0.18); border-color: rgba(45, 106, 79, 0.4); }
     .dark .th-forum-meta strong, .dark .th-forum-body { color: var(--gray-100); }

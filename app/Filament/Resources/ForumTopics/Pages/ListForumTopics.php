@@ -5,7 +5,6 @@ namespace App\Filament\Resources\ForumTopics\Pages;
 use App\Filament\Resources\ForumTopics\ForumTopicResource;
 use App\Models\Category;
 use App\Models\ForumTopic;
-use App\Models\Product;
 use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -13,8 +12,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 
 class ListForumTopics extends ListRecords
@@ -44,16 +41,7 @@ class ListForumTopics extends ListRecords
                 ->schema([
                     Select::make('category_id')->label('Kategori')
                         ->options(fn () => Category::query()->orderBy('sort')->pluck('name', 'id')->all())
-                        ->placeholder('Genel (kategorisiz)')
-                        ->live()
-                        ->afterStateUpdated(fn (Set $set) => $set('product', null)),
-                    Select::make('product')->label('Alt başlık')
-                        ->helperText('Kategorinin ürünlerinden biri (örn. Tahıl → Çeltik). Yeni alt başlık için Kategoriler sayfasından ürün ekleyin.')
-                        ->placeholder('Genel')
-                        ->options(fn (Get $get) => $get('category_id')
-                            ? Product::query()->where('category_id', $get('category_id'))->where('is_active', true)->orderBy('sort')->orderBy('name')->pluck('name', 'name')->all()
-                            : [])
-                        ->disabled(fn (Get $get) => blank($get('category_id'))),
+                        ->placeholder('Genel (kategorisiz)'),
                     TextInput::make('title')->label('Başlık')->required()->minLength(5)->maxLength(120),
                     Textarea::make('body')->label('Metin')->required()->minLength(10)->maxLength(2000)->rows(6),
                 ])

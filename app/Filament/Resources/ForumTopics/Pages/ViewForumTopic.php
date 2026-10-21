@@ -9,6 +9,7 @@ use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -61,13 +62,36 @@ class ViewForumTopic extends ViewRecord
 
                     Notification::make()->title('Cevap eklendi')->success()->send();
                 }),
+            Action::make('teamSubtopic')
+                ->label('Ekip olarak alt başlık aç')
+                ->icon('heroicon-o-plus')
+                ->color('gray')
+                ->visible(fn () => $this->getRecord()->parent_id === null)
+                ->modalHeading('Alt başlık aç')
+                ->modalDescription(fn () => '"'.$this->getRecord()->title.'" konusunun içinde açılır; sitede "Toptanhasat Ekibi" adıyla görünür.')
+                ->schema([
+                    TextInput::make('title')->label('Başlık')->required()->minLength(5)->maxLength(120)
+                        ->placeholder('Örn. Çeltik fiyatları'),
+                    Textarea::make('body')->label('Metin')->required()->minLength(10)->maxLength(2000)->rows(5),
+                ])
+                ->modalSubmitActionLabel('Aç')
+                ->action(function (array $data) {
+                    /** @var ForumTopic $parent */
+                    $parent = $this->getRecord();
+                    $topic = new ForumTopic([...$data, 'parent_id' => $parent->id, 'category_id' => $parent->category_id]);
+                    $topic->user()->associate(auth()->user());
+                    $topic->save();
+
+                    Notification::make()->title('Alt başlık açıldı')->success()->send();
+                    $this->redirect(ForumTopicResource::getUrl('view', ['record' => $topic]));
+                }),
             Action::make('viewOnSite')
                 ->label('Sitede gör')
                 ->icon('heroicon-o-arrow-top-right-on-square')
                 ->color('gray')
                 ->url(fn () => rtrim(config('app.frontend_url'), '/').'/forum/'.$this->getRecord()->getKey(), shouldOpenInNewTab: true),
             DeleteAction::make()->label('Konuyu sil')
-                ->modalDescription('Konu ve tüm cevapları silinir. Bu işlem geri alınamaz.'),
+                ->modalDescription('Konu, alt başlıkları ve tüm cevapları silinir. Bu işlem geri alınamaz.'),
         ];
     }
 }

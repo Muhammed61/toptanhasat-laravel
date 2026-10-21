@@ -58,7 +58,7 @@ class ForumTopicResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['category', 'user']);
+        return parent::getEloquentQuery()->with(['category', 'user', 'parent']);
     }
 
     public static function infolist(Schema $schema): Schema
@@ -75,7 +75,12 @@ class ForumTopicResource extends Resource
                     ->columnSpan(1)
                     ->schema([
                         TextEntry::make('category.name')->label('Kategori')->placeholder('-'),
-                        TextEntry::make('product')->label('Alt başlık')->placeholder('Genel'),
+                        TextEntry::make('parent.title')->label('Üst konu')
+                            ->visible(fn (ForumTopic $record) => $record->parent_id !== null)
+                            ->url(fn (ForumTopic $record) => $record->parent ? self::getUrl('view', ['record' => $record->parent]) : null)
+                            ->color('primary'),
+                        TextEntry::make('subtopics_count')->label('Alt başlık sayısı')
+                            ->visible(fn (ForumTopic $record) => $record->parent_id === null),
                         TextEntry::make('user')->label('Açan')
                             ->state(fn (ForumTopic $record) => $record->authorName())
                             ->helperText(fn (ForumTopic $record) => $record->user_id ? null : 'Misafir · '.$record->ip_address)
@@ -94,14 +99,14 @@ class ForumTopicResource extends Resource
             ->defaultSort('last_activity_at', 'desc')
             ->columns([
                 TextColumn::make('title')->label('Konu')
-                    ->description(fn (ForumTopic $record) => str($record->body)->limit(120))
+                    ->description(fn (ForumTopic $record) => ($record->parent ? '↳ '.$record->parent->title.' · ' : '').str($record->body)->limit(120))
                     ->wrap()->searchable(),
-                TextColumn::make('category.name')->label('Kategori')->badge()->color('gray')->placeholder('-')
-                    ->description(fn (ForumTopic $record) => $record->product),
+                TextColumn::make('category.name')->label('Kategori')->badge()->color('gray')->placeholder('-'),
                 TextColumn::make('user')->label('Açan')
                     ->state(fn (ForumTopic $record) => $record->authorName())
                     ->description(fn (ForumTopic $record) => $record->user_id ? 'Üye' : 'Misafir · '.$record->ip_address),
                 TextColumn::make('replies_count')->label('Cevap')->alignCenter()->sortable(),
+                TextColumn::make('subtopics_count')->label('Alt başlık')->alignCenter()->sortable(),
                 TextColumn::make('last_activity_at')->label('Son hareket')->since()->dateTimeTooltip('d.m.Y H:i')->sortable(),
             ])
             ->filters([
@@ -111,7 +116,7 @@ class ForumTopicResource extends Resource
             ->recordActions([
                 ViewAction::make()->label('Görüntüle'),
                 DeleteAction::make()->label('Sil')->modalHeading('Konu silinsin mi?')
-                    ->modalDescription('Konu ve tüm cevapları silinir. Bu işlem geri alınamaz.'),
+                    ->modalDescription('Konu, alt başlıkları ve tüm cevapları silinir. Bu işlem geri alınamaz.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

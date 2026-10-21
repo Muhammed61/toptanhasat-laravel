@@ -24,6 +24,7 @@ use Illuminate\Validation\ValidationException;
  * Forum: kategorilere göre konular ve cevaplar. Herkes okur ve yazar; misafirler IP'ye bağlı
  * "Misafir04217" gibi bir adla görünür (ilan yorumlarındaki gibi). Onay yok; bağlantı/e-posta içeren
  * metin kabul edilmez, misafirlere günlük sınır ve robot tuzağı var, uygunsuz olanlar panelden silinir.
+ * Konunun içinde alt başlık açılabilir (Çeltik → Çeltik fiyatları); listede yalnızca üst konular görünür.
  */
 class ForumController extends Controller
 {
@@ -36,21 +37,16 @@ class ForumController extends Controller
 
     public const GUEST_DAILY_REPLIES = 30;
 
-    /**
-     * Konular: son hareket edilen üstte. ?kategori=tahil ve ?urun=Çeltik (alt başlık) ile filtrelenir,
-     * ?adet= ana sayfa için (en çok 10). Kategori seçiliyse alt başlıkların konu sayıları da döner.
-     */
+    /** Konular: son hareket edilen üstte; ?kategori=sebze ile filtrelenir, ?adet= ana sayfa için (en çok 10) */
     public function index(Request $request): JsonResponse
     {
         $perPage = min(max((int) $request->query('adet', self::PER_PAGE), 1), self::PER_PAGE);
         $slug = (string) $request->query('kategori', '');
-        $product = trim((string) $request->query('urun', ''));
-        $inCategory = fn ($q) => $q->when($slug !== '', fn ($q) => $q->whereHas('category', fn ($c) => $c->where('slug', $slug)));
 
         $page = ForumTopic::query()
             ->with(['category', 'user'])
-            ->tap($inCategory)
-            ->when($product !== '', fn ($q) => $q->where('product', $product))
+            ->whereNull('parent_id')
+            ->when($slug !== '', fn ($q) => $q->whereHas('category', fn ($c) => $c->where('slug', $slug)))
             ->latest('last_activity_at')
             ->latest('id')
             ->paginate($perPage);
@@ -58,9 +54,6 @@ class ForumController extends Controller
         return response()->json([
             'data' => $page->getCollection()->map(fn (ForumTopic $t) => $this->presentTopic($t, excerpt: true))->values(),
             'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
-            // Alt başlık sekmelerinde "Çeltik (3)" için
-            'product_counts' => $slug === '' ? (object) [] : ForumTopic::query()->tap($inCategory)->whereNotNull('product')
-                ->selectRaw('product, count(*) as total')->groupBy('product')->pluck('total', 'product'),
         ]);
     }
 
@@ -72,11 +65,14 @@ class ForumController extends Controller
 
     public function show(Request $request, ForumTopic $topic): JsonResponse
     {
-        $topic->load(['category', 'user']);
+        $topic->load(['category', 'user', 'parent']);
         $page = $topic->replies()->with('user')->paginate(self::REPLIES_PER_PAGE);
+        $subtopics = $topic->parent_id ? collect() : $topic->subtopics()->with(['category', 'user'])
+            ->latest('last_activity_at')->latest('id')->limit(200)->get();
 
         return response()->json([
             'topic' => $this->presentTopic($topic),
+            'subtopics' => $subtopics->map(fn (ForumTopic $t) => $this->presentTopic($t, excerpt: true))->values(),
             'replies' => $page->getCollection()->map(fn (ForumReply $r) => $this->presentReply($r, $topic))->values(),
             'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
         ]);
@@ -86,17 +82,15 @@ class ForumController extends Controller
     {
         $user = $request->user('sanctum');
         $data = $request->validate([
-            'category' => ['required', Rule::exists('categories', 'slug')->where('is_active', true)],
-            // Alt başlık (isteğe bağlı): seçilen kategorinin ürünlerinden biri
-            'product' => ['nullable', 'string', Rule::exists('products', 'name')
-                ->where('is_active', true)
-                ->where('category_id', Category::where('slug', (string) $request->input('category'))->value('id'))],
+            // Alt başlık: üst konunun kategorisinde açılır; alt başlığın altına açılmaz
+            'parent' => ['nullable', 'integer', Rule::exists('forum_topics', 'id')->whereNull('parent_id')],
+            'category' => ['required_without:parent', 'nullable', Rule::exists('categories', 'slug')->where('is_active', true)],
             'title' => ['required', 'string', 'min:5', 'max:120', new NoLinks],
             'body' => ['required', 'string', 'min:10', 'max:2000', new NoLinks],
         ], [
-            'category.required' => 'Bir kategori seçin.',
+            'parent.exists' => 'Bu konunun altına başlık açılamaz.',
+            'category.required_without' => 'Bir kategori seçin.',
             'category.exists' => 'Bir kategori seçin.',
-            'product.exists' => 'Bu kategoride böyle bir alt başlık yok.',
             'title.required' => 'Konu başlığını yazın.',
             'title.min' => 'Başlık çok kısa.',
             'title.max' => 'Başlık en fazla 120 karakter olabilir.',
@@ -115,14 +109,15 @@ class ForumController extends Controller
             throw ValidationException::withMessages(['title' => 'Bugün çok fazla konu açtınız. Lütfen yarın tekrar deneyin ya da üye olun.']);
         }
 
+        $parent = filled($data['parent'] ?? null) ? ForumTopic::find($data['parent']) : null;
         $topic = new ForumTopic([
-            'category_id' => Category::where('slug', $data['category'])->value('id'),
-            'product' => filled($data['product'] ?? null) ? $data['product'] : null,
+            'parent_id' => $parent?->id,
+            'category_id' => $parent ? $parent->category_id : Category::where('slug', $data['category'])->value('id'),
             'title' => $title,
             'body' => trim($data['body']),
         ]);
         $this->stampAuthor($topic, $request)->save();
-        $topic->load(['category', 'user']);
+        $topic->load(['category', 'user', 'parent']);
 
         rescue(fn () => AdminNotifier::forum($topic));
         if (! $user?->is_admin) {
@@ -196,7 +191,8 @@ class ForumController extends Controller
             'title' => $t->title,
             'body' => $excerpt ? Str::limit($t->body, 160) : $t->body,
             'category' => $t->category ? ['key' => $t->category->slug, 'label' => $t->category->name] : null,
-            'product' => $t->product,
+            'parent' => $t->parent ? ['id' => $t->parent->id, 'title' => $t->parent->title] : null,
+            'subtopics_count' => (int) $t->subtopics_count,
             'author' => $this->presentAuthor($t),
             'replies_count' => (int) $t->replies_count,
             'created_at' => $t->created_at->toIso8601String(),
