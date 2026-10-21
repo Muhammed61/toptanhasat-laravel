@@ -76,7 +76,7 @@ class SiteSettingResource extends Resource
                                 ->helperText('Alt bilgi ve giriş sayfasındaki koyu alanlar için beyaz logo. Boşsa varsayılan işaret kullanılır.'),
                             $image('data.favicon', 'Favicon')
                                 ->acceptedFileTypes(['image/png', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml'])
-                                ->helperText('Tarayıcı sekmesindeki küçük ikon. Kare, en az 64×64 PNG.'),
+                                ->helperText('Tarayıcı sekmesi ve Google arama sonuçlarındaki ikon. Kare, şeffaf arka planlı, 192×192 PNG önerilir.'),
                         ]),
                     ]),
 
