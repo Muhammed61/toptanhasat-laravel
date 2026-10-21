@@ -12,7 +12,7 @@ class ForumTopic extends Model
 {
     use HasForumAuthor;
 
-    protected $fillable = ['category_id', 'title', 'body'];
+    protected $fillable = ['category_id', 'product', 'title', 'body'];
 
     protected function casts(): array
     {

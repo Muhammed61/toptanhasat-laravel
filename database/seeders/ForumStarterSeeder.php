@@ -16,6 +16,17 @@ use Illuminate\Database\Seeder;
  */
 class ForumStarterSeeder extends Seeder
 {
+    /** Başlangıç konularının alt başlığı (kategorinin ürünü); listede olmayanlar kategoride genel kalır */
+    public const PRODUCTS = [
+        'Domates fiyatları sizin ilde ne durumda?' => 'Domates',
+        'Biber hasadında en çok hangi sorunla karşılaşıyorsunuz?' => 'Biber',
+        'Kiraz hasadı için doğru zamanı nasıl belirliyorsunuz?' => 'Kiraz',
+        'Elmada soğuk hava deposu mu, hasattan hemen satış mı?' => 'Elma',
+        'Buğday hasadı: bu yıl verim nasıl?' => 'Buğday',
+        'Nohut ekiminde hangi çeşitleri tercih ediyorsunuz?' => 'Nohut',
+        'Fındık kurutma: serende mi, makinede mi?' => 'Fındık',
+    ];
+
     /** [kategori (boşsa genel), başlık, metin] — listede yukarıdakiler en yeni görünür */
     public const TOPICS = [
         [null, 'Foruma hoş geldiniz: nasıl kullanılır?', "Merhaba! Bu forum çiftçilerin ve toptan alıcıların mahsüller hakkında soru sorup deneyim paylaşması için.\n\n• Kategorisini seçip yeni bir konu açabilirsiniz.\n• Bir konuya cevap yazmak için üye olmanız gerekmez; üye olursanız adınızla görünürsünüz.\n• Bağlantı ve e-posta paylaşılamaz; telefon veya adres gibi kişisel bilgilerinizi de yazmamanızı öneririz.\n\nSorunuz, öneriniz ya da paylaşmak istediğiniz bir deneyim varsa çekinmeyin."],
@@ -49,11 +60,23 @@ class ForumStarterSeeder extends Seeder
         $created = 0;
 
         foreach (self::TOPICS as $i => [$slug, $title, $body]) {
-            if (ForumTopic::where('title', $title)->exists()) {
+            $product = self::PRODUCTS[$title] ?? null;
+
+            // Daha önce açıldıysa yalnızca eksik alt başlığı tamamla
+            if ($existing = ForumTopic::where('title', $title)->first()) {
+                if ($product && ! $existing->product) {
+                    $existing->forceFill(['product' => $product])->saveQuietly();
+                }
+
                 continue;
             }
 
-            $topic = new ForumTopic(['category_id' => $slug ? ($categories[$slug] ?? null) : null, 'title' => $title, 'body' => $body]);
+            $topic = new ForumTopic([
+                'category_id' => $slug ? ($categories[$slug] ?? null) : null,
+                'product' => $product,
+                'title' => $title,
+                'body' => $body,
+            ]);
             $topic->user()->associate($team);
             // Listede sırayı korumak için birer dakika arayla (ilk konu en üstte)
             $topic->created_at = $topic->last_activity_at = now()->subMinutes($i);

@@ -75,6 +75,7 @@ class ForumTopicResource extends Resource
                     ->columnSpan(1)
                     ->schema([
                         TextEntry::make('category.name')->label('Kategori')->placeholder('-'),
+                        TextEntry::make('product')->label('Alt başlık')->placeholder('Genel'),
                         TextEntry::make('user')->label('Açan')
                             ->state(fn (ForumTopic $record) => $record->authorName())
                             ->helperText(fn (ForumTopic $record) => $record->user_id ? null : 'Misafir · '.$record->ip_address)
@@ -95,7 +96,8 @@ class ForumTopicResource extends Resource
                 TextColumn::make('title')->label('Konu')
                     ->description(fn (ForumTopic $record) => str($record->body)->limit(120))
                     ->wrap()->searchable(),
-                TextColumn::make('category.name')->label('Kategori')->badge()->color('gray')->placeholder('-'),
+                TextColumn::make('category.name')->label('Kategori')->badge()->color('gray')->placeholder('-')
+                    ->description(fn (ForumTopic $record) => $record->product),
                 TextColumn::make('user')->label('Açan')
                     ->state(fn (ForumTopic $record) => $record->authorName())
                     ->description(fn (ForumTopic $record) => $record->user_id ? 'Üye' : 'Misafir · '.$record->ip_address),

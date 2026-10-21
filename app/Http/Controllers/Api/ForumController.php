@@ -36,15 +36,21 @@ class ForumController extends Controller
 
     public const GUEST_DAILY_REPLIES = 30;
 
-    /** Konular: son hareket edilen üstte; ?kategori=sebze ile filtrelenir, ?adet= ana sayfa için (en çok 10) */
+    /**
+     * Konular: son hareket edilen üstte. ?kategori=tahil ve ?urun=Çeltik (alt başlık) ile filtrelenir,
+     * ?adet= ana sayfa için (en çok 10). Kategori seçiliyse alt başlıkların konu sayıları da döner.
+     */
     public function index(Request $request): JsonResponse
     {
         $perPage = min(max((int) $request->query('adet', self::PER_PAGE), 1), self::PER_PAGE);
         $slug = (string) $request->query('kategori', '');
+        $product = trim((string) $request->query('urun', ''));
+        $inCategory = fn ($q) => $q->when($slug !== '', fn ($q) => $q->whereHas('category', fn ($c) => $c->where('slug', $slug)));
 
         $page = ForumTopic::query()
             ->with(['category', 'user'])
-            ->when($slug !== '', fn ($q) => $q->whereHas('category', fn ($c) => $c->where('slug', $slug)))
+            ->tap($inCategory)
+            ->when($product !== '', fn ($q) => $q->where('product', $product))
             ->latest('last_activity_at')
             ->latest('id')
             ->paginate($perPage);
@@ -52,6 +58,9 @@ class ForumController extends Controller
         return response()->json([
             'data' => $page->getCollection()->map(fn (ForumTopic $t) => $this->presentTopic($t, excerpt: true))->values(),
             'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
+            // Alt başlık sekmelerinde "Çeltik (3)" için
+            'product_counts' => $slug === '' ? (object) [] : ForumTopic::query()->tap($inCategory)->whereNotNull('product')
+                ->selectRaw('product, count(*) as total')->groupBy('product')->pluck('total', 'product'),
         ]);
     }
 
@@ -78,11 +87,16 @@ class ForumController extends Controller
         $user = $request->user('sanctum');
         $data = $request->validate([
             'category' => ['required', Rule::exists('categories', 'slug')->where('is_active', true)],
+            // Alt başlık (isteğe bağlı): seçilen kategorinin ürünlerinden biri
+            'product' => ['nullable', 'string', Rule::exists('products', 'name')
+                ->where('is_active', true)
+                ->where('category_id', Category::where('slug', (string) $request->input('category'))->value('id'))],
             'title' => ['required', 'string', 'min:5', 'max:120', new NoLinks],
             'body' => ['required', 'string', 'min:10', 'max:2000', new NoLinks],
         ], [
             'category.required' => 'Bir kategori seçin.',
             'category.exists' => 'Bir kategori seçin.',
+            'product.exists' => 'Bu kategoride böyle bir alt başlık yok.',
             'title.required' => 'Konu başlığını yazın.',
             'title.min' => 'Başlık çok kısa.',
             'title.max' => 'Başlık en fazla 120 karakter olabilir.',
@@ -103,6 +117,7 @@ class ForumController extends Controller
 
         $topic = new ForumTopic([
             'category_id' => Category::where('slug', $data['category'])->value('id'),
+            'product' => filled($data['product'] ?? null) ? $data['product'] : null,
             'title' => $title,
             'body' => trim($data['body']),
         ]);
@@ -181,6 +196,7 @@ class ForumController extends Controller
             'title' => $t->title,
             'body' => $excerpt ? Str::limit($t->body, 160) : $t->body,
             'category' => $t->category ? ['key' => $t->category->slug, 'label' => $t->category->name] : null,
+            'product' => $t->product,
             'author' => $this->presentAuthor($t),
             'replies_count' => (int) $t->replies_count,
             'created_at' => $t->created_at->toIso8601String(),

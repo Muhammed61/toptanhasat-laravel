@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Filament\Resources\ForumTopics\Pages\ListForumTopics;
 use App\Filament\Resources\ForumTopics\Pages\ViewForumTopic;
 use App\Http\Controllers\Api\ForumController;
+use App\Models\Category;
 use App\Models\ForumReply;
 use App\Models\ForumTopic;
+use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Notifications\ForumRepliedNotification;
@@ -212,5 +214,28 @@ class ForumTest extends TestCase
         // Üyenin cevabı ekip sayılmaz
         $id = $this->openTopic($this->ayse);
         $this->assertFalse(ForumTopic::find($id)->isTeam());
+    }
+
+    public function test_topics_can_be_filed_under_a_product_sub_heading(): void
+    {
+        // Kategoriler sayfasından eklenen ürün forumda alt başlık olur
+        Product::create(['category_id' => Category::where('slug', 'tahil')->value('id'), 'name' => 'Çeltik', 'sort' => 9, 'is_active' => true]);
+
+        $price = $this->openTopic($this->ayse, ['category' => 'tahil', 'product' => 'Çeltik', 'title' => 'Çeltik fiyatları']);
+        $this->openTopic($this->ayse, ['category' => 'tahil', 'product' => 'Çeltik', 'title' => 'Çeltik ilaçları']);
+        $this->openTopic($this->veli, ['category' => 'tahil', 'title' => 'Genel tahıl sorusu']);
+
+        // Başka kategorinin ürünü seçilemez
+        $this->as($this->ayse)->postJson('/api/forum', [
+            'category' => 'tahil', 'product' => 'Domates', 'title' => 'Yanlış alt başlık', 'body' => 'Bu konu yanlış alt başlıkta.',
+        ])->assertUnprocessable()->assertJsonPath('errors.product.0', 'Bu kategoride böyle bir alt başlık yok.');
+        app('auth')->forgetGuards();
+
+        $this->getJson('/api/forum?kategori=tahil')
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('product_counts.Çeltik', 2);
+        $titles = $this->getJson('/api/forum?kategori=tahil&urun=Çeltik')->json('data.*.title');
+        $this->assertEqualsCanonicalizing(['Çeltik fiyatları', 'Çeltik ilaçları'], $titles);
+        $this->getJson("/api/forum/{$price}")->assertJsonPath('topic.product', 'Çeltik');
     }
 }
