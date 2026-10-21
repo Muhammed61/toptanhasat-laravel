@@ -13,6 +13,7 @@ use App\Support\AdminMail;
 use App\Support\AdminNotifier;
 use App\Support\GuestName;
 use App\Support\MailSettings;
+use App\Support\SiteData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -203,7 +204,15 @@ class ForumController extends Controller
 
     private function presentAuthor(ForumTopic|ForumReply $post): array
     {
-        return ['name' => $post->authorName(), 'avatar_url' => $post->user?->avatarUrl(), 'is_guest' => $post->user_id === null];
+        $team = $post->isTeam();
+
+        return [
+            'name' => $post->authorName(),
+            // Ekip: site ikonu (favicon) ile görünür
+            'avatar_url' => $team ? (SiteData::get()['settings']['favicon_url'] ?? null) : $post->user?->avatarUrl(),
+            'is_guest' => $post->user_id === null,
+            'is_team' => $team,
+        ];
     }
 
     /** Üye: hesabına bağlanır. Misafir: IP'ye bağlı sabit ad ve IP kaydedilir. */

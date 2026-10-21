@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\ForumTopics\Pages;
 
 use App\Filament\Resources\ForumTopics\ForumTopicResource;
+use App\Models\ForumReply;
 use App\Models\ForumTopic;
 use App\Support\AdminNotifier;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -42,6 +44,23 @@ class ViewForumTopic extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('teamReply')
+                ->label('Ekip olarak cevap yaz')
+                ->icon('heroicon-o-chat-bubble-left-ellipsis')
+                ->modalHeading('Ekip olarak cevap yaz')
+                ->modalDescription('Cevap sitede "Toptanhasat Ekibi" adıyla ve "Ekip" rozetiyle görünür.')
+                ->schema([
+                    Textarea::make('body')->label('Cevap')->required()->minLength(2)->maxLength(1000)->rows(5),
+                ])
+                ->modalSubmitActionLabel('Gönder')
+                ->action(function (array $data) {
+                    $reply = new ForumReply(['body' => $data['body']]);
+                    $reply->user()->associate(auth()->user());
+                    $this->getRecord()->replies()->save($reply);
+                    $this->getRecord()->refresh();
+
+                    Notification::make()->title('Cevap eklendi')->success()->send();
+                }),
             Action::make('viewOnSite')
                 ->label('Sitede gör')
                 ->icon('heroicon-o-arrow-top-right-on-square')

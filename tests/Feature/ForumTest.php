@@ -13,6 +13,7 @@ use App\Notifications\ForumRepliedNotification;
 use App\Support\AdminNotifier;
 use Database\Seeders\CitySeeder;
 use Database\Seeders\ContentSeeder;
+use Database\Seeders\ForumStarterSeeder;
 use Filament\Facades\Filament;
 use Filament\Notifications\DatabaseNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -181,5 +182,35 @@ class ForumTest extends TestCase
         Livewire::test(ViewForumTopic::class, ['record' => $id])->call('deleteReply', $reply->id);
         $this->assertSame(0, $topic->fresh()->replies_count);
         $this->assertDatabaseMissing('forum_replies', ['id' => $reply->id]);
+    }
+
+    public function test_team_posts_and_starter_topics(): void
+    {
+        $this->seed(ForumStarterSeeder::class);
+        $this->seed(ForumStarterSeeder::class); // ikinci kez çalışınca tekrar açmaz
+        $this->assertSame(count(ForumStarterSeeder::TOPICS), ForumTopic::count());
+        $this->assertSame(0, ForumReply::count()); // cevap üretilmez
+
+        $first = $this->getJson('/api/forum?adet=1')->assertOk();
+        $first->assertJsonPath('data.0.title', ForumStarterSeeder::TOPICS[0][1])
+            ->assertJsonPath('data.0.author.name', 'Toptanhasat Ekibi')
+            ->assertJsonPath('data.0.author.is_team', true);
+
+        // Panelden ekip olarak konu açma ve cevap yazma
+        $this->as($this->admin);
+        Filament::setCurrentPanel('admin');
+        Livewire::test(ListForumTopics::class)
+            ->callAction('newTeamTopic', ['category_id' => null, 'title' => 'Ekipten yeni konu', 'body' => 'Bu konu panelden açıldı.'])
+            ->assertHasNoActionErrors();
+        $topic = ForumTopic::where('title', 'Ekipten yeni konu')->sole();
+        Livewire::test(ViewForumTopic::class, ['record' => $topic->id])
+            ->callAction('teamReply', ['body' => 'Ekip cevabı'])
+            ->assertHasNoActionErrors();
+        $this->assertSame(1, $topic->fresh()->replies_count);
+        $this->assertTrue($topic->replies()->sole()->isTeam());
+
+        // Üyenin cevabı ekip sayılmaz
+        $id = $this->openTopic($this->ayse);
+        $this->assertFalse(ForumTopic::find($id)->isTeam());
     }
 }
