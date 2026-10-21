@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Forum konusu: bir kategoride üyenin açtığı başlık */
+/** Forum konusu: bir kategoride üyenin ya da misafirin açtığı başlık */
 class ForumTopic extends Model
 {
     protected $fillable = ['category_id', 'title', 'body'];
@@ -29,6 +29,12 @@ class ForumTopic extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Görünen ad: üyenin hesap adı ya da misafirin IP'ye bağlı adı ("Misafir04217") */
+    public function authorName(): string
+    {
+        return $this->user?->fullName() ?? $this->author_name ?? 'Misafir';
     }
 
     public function replies(): HasMany

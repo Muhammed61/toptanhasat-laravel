@@ -26,10 +26,6 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    // Forum: konu açmak ve cevap yazmak üyelik ister
-    Route::post('/forum', [ForumController::class, 'store'])->middleware('throttle:5,1');
-    Route::post('/forum/{topic}/replies', [ForumController::class, 'reply'])->whereNumber('topic')->middleware('throttle:10,1');
-
     Route::get('/user', [AuthController::class, 'me']);
 
     // Profilim
@@ -65,8 +61,11 @@ Route::get('/listings/{listing}', [PublicListingController::class, 'show'])->whe
 Route::get('/listings/{listing}/comments', [ListingCommentController::class, 'index'])->whereNumber('listing');
 Route::get('/comments/latest', [ListingCommentController::class, 'latest']);
 
-// Forum (herkes okur)
+// Forum: herkes okur ve yazar (misafirler "Misafir04217" gibi bir adla görünür)
 Route::get('/forum', [ForumController::class, 'index']);
+Route::get('/forum/viewer', [ForumController::class, 'viewer']);
+Route::post('/forum', [ForumController::class, 'store'])->middleware('throttle:5,1');
+Route::post('/forum/{topic}/replies', [ForumController::class, 'reply'])->whereNumber('topic')->middleware('throttle:10,1');
 Route::get('/forum/{topic}', [ForumController::class, 'show'])->whereNumber('topic');
 Route::post('/listings/{listing}/comments', [ListingCommentController::class, 'store'])->whereNumber('listing')->middleware('throttle:5,1');
 

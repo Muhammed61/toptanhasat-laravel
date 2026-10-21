@@ -105,15 +105,16 @@ class AdminNotifier
     /** Yeni forum konusu ya da cevabı (aynı konudaki her olay ayrı bildirim; anahtar konuya göre) */
     public static function forum(ForumTopic $topic, ?ForumReply $reply = null): void
     {
-        $author = $reply ? $reply->user : $topic->user;
+        $post = $reply ?? $topic;
+        $name = $post->authorName();
 
         self::send(
-            recipients: self::admins(except: $author?->id),
+            recipients: self::admins(except: $post->user_id),
             type: self::TYPE_FORUM,
             key: "forum:{$topic->id}",
             url: ForumTopicResource::getUrl('view', ['record' => $topic], isAbsolute: false),
             notification: fn () => Notification::make()
-                ->title($reply ? "Forumda yeni cevap: {$author?->fullName()}" : "Yeni forum konusu: {$author?->fullName()}")
+                ->title($reply ? "Forumda yeni cevap: {$name}" : "Yeni forum konusu: {$name}")
                 ->body("\"{$topic->title}\"".($reply ? ' · '.Str::limit($reply->body, 120) : ''))
                 ->icon(Heroicon::OutlinedChatBubbleOvalLeftEllipsis)
                 ->iconColor('success'),

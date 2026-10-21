@@ -11,6 +11,7 @@ use App\Notifications\ForumRepliedNotification;
 use App\Rules\NoLinks;
 use App\Support\AdminMail;
 use App\Support\AdminNotifier;
+use App\Support\GuestName;
 use App\Support\MailSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,14 +20,20 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Forum: kategorilere göre konular ve cevaplar. Herkes okur; konu açmak ve cevap yazmak üyelik ister.
- * Onay yok (yorumlar gibi); bağlantı/e-posta içeren metin kabul edilmez, uygunsuz olanlar panelden silinir.
+ * Forum: kategorilere göre konular ve cevaplar. Herkes okur ve yazar; misafirler IP'ye bağlı
+ * "Misafir04217" gibi bir adla görünür (ilan yorumlarındaki gibi). Onay yok; bağlantı/e-posta içeren
+ * metin kabul edilmez, misafirlere günlük sınır ve robot tuzağı var, uygunsuz olanlar panelden silinir.
  */
 class ForumController extends Controller
 {
     public const PER_PAGE = 10;
 
     public const REPLIES_PER_PAGE = 30;
+
+    /** Misafirin bir IP'den 24 saatte açabileceği konu ve yazabileceği cevap */
+    public const GUEST_DAILY_TOPICS = 5;
+
+    public const GUEST_DAILY_REPLIES = 30;
 
     /** Konular: son hareket edilen üstte; ?kategori=sebze ile filtrelenir, ?adet= ana sayfa için (en çok 10) */
     public function index(Request $request): JsonResponse
@@ -47,6 +54,12 @@ class ForumController extends Controller
         ]);
     }
 
+    /** Formda "… olarak yazıyorsunuz" için (misafir adı ziyaretçinin IP'sinden) */
+    public function viewer(Request $request): JsonResponse
+    {
+        return response()->json(['name' => $this->authorName($request), 'is_member' => $request->user('sanctum') !== null]);
+    }
+
     public function show(Request $request, ForumTopic $topic): JsonResponse
     {
         $topic->load(['category', 'user']);
@@ -61,7 +74,7 @@ class ForumController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user('sanctum');
         $data = $request->validate([
             'category' => ['required', Rule::exists('categories', 'slug')->where('is_active', true)],
             'title' => ['required', 'string', 'min:5', 'max:120', new NoLinks],
@@ -77,11 +90,14 @@ class ForumController extends Controller
             'body.max' => 'Metin en fazla 2000 karakter olabilir.',
         ]);
 
+        $this->ensureNotBot($request, 'title');
         $title = trim($data['title']);
-        $duplicate = ForumTopic::where('user_id', $user->id)->where('created_at', '>=', now()->subDay())
-            ->pluck('title')->contains(fn (string $t) => self::normalize($t) === self::normalize($title));
-        if ($duplicate) {
+        $mine = ForumTopic::query()->where($this->author($request))->where('created_at', '>=', now()->subDay());
+        if ((clone $mine)->pluck('title')->contains(fn (string $t) => self::normalize($t) === self::normalize($title))) {
             throw ValidationException::withMessages(['title' => 'Bu başlıkla zaten bir konu açtınız.']);
+        }
+        if (! $user && $mine->count() >= self::GUEST_DAILY_TOPICS) {
+            throw ValidationException::withMessages(['title' => 'Bugün çok fazla konu açtınız. Lütfen yarın tekrar deneyin ya da üye olun.']);
         }
 
         $topic = new ForumTopic([
@@ -89,11 +105,11 @@ class ForumController extends Controller
             'title' => $title,
             'body' => trim($data['body']),
         ]);
-        $topic->user()->associate($user)->save();
+        $this->stampAuthor($topic, $request)->save();
         $topic->load(['category', 'user']);
 
         rescue(fn () => AdminNotifier::forum($topic));
-        if (! $user->is_admin) {
+        if (! $user?->is_admin) {
             AdminMail::forum($topic);
         }
 
@@ -102,7 +118,7 @@ class ForumController extends Controller
 
     public function reply(Request $request, ForumTopic $topic): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user('sanctum');
         $data = $request->validate([
             'body' => ['required', 'string', 'min:2', 'max:1000', new NoLinks],
         ], [
@@ -111,20 +127,24 @@ class ForumController extends Controller
             'body.max' => 'Cevap en fazla 1000 karakter olabilir.',
         ]);
 
+        $this->ensureNotBot($request, 'body');
         $body = trim($data['body']);
-        $duplicate = $topic->replies()->where('user_id', $user->id)->where('created_at', '>=', now()->subDay())
+        $duplicate = $topic->replies()->where($this->author($request))->where('created_at', '>=', now()->subDay())
             ->pluck('body')->contains(fn (string $b) => self::normalize($b) === self::normalize($body));
         if ($duplicate) {
             throw ValidationException::withMessages(['body' => 'Bu cevabı zaten yazdınız.']);
         }
+        if (! $user && ForumReply::query()->where($this->author($request))->where('created_at', '>=', now()->subDay())->count() >= self::GUEST_DAILY_REPLIES) {
+            throw ValidationException::withMessages(['body' => 'Bugün çok fazla cevap yazdınız. Lütfen yarın tekrar deneyin ya da üye olun.']);
+        }
 
         $reply = new ForumReply(['body' => $body]);
-        $reply->user()->associate($user);
+        $this->stampAuthor($reply, $request);
         $topic->replies()->save($reply);
         $reply->setRelation('topic', $topic);
 
         rescue(fn () => AdminNotifier::forum($topic, $reply));
-        if (! $user->is_admin) {
+        if (! $user?->is_admin) {
             AdminMail::forum($topic, $reply);
         }
         $this->notifyParticipants($topic, $reply);
@@ -138,11 +158,12 @@ class ForumController extends Controller
         $authorId = $reply->user_id;
         $ownerId = $topic->user_id;
 
+        // Misafirlerin e-postası yok; yalnızca üyelere gider
         $participants = User::query()
-            ->whereIn('id', $topic->replies()->whereKeyNot($reply->id)->select('user_id'))
+            ->whereIn('id', $topic->replies()->whereKeyNot($reply->id)->whereNotNull('user_id')->select('user_id'))
             ->whereKeyNot(array_filter([$authorId, $ownerId]))
             ->get();
-        $owner = $ownerId !== $authorId ? $topic->user : null;
+        $owner = $ownerId && $ownerId !== $authorId ? $topic->user : null;
 
         MailSettings::sendLater(function () use ($reply, $owner, $participants) {
             $owner?->notify(new ForumRepliedNotification($reply, toOwner: true));
@@ -159,7 +180,7 @@ class ForumController extends Controller
             'title' => $t->title,
             'body' => $excerpt ? Str::limit($t->body, 160) : $t->body,
             'category' => $t->category ? ['key' => $t->category->slug, 'label' => $t->category->name] : null,
-            'author' => $this->presentAuthor($t->user),
+            'author' => $this->presentAuthor($t),
             'replies_count' => (int) $t->replies_count,
             'created_at' => $t->created_at->toIso8601String(),
             'last_activity_at' => ($t->last_activity_at ?? $t->created_at)->toIso8601String(),
@@ -171,15 +192,53 @@ class ForumController extends Controller
         return [
             'id' => $r->id,
             'body' => $r->body,
-            'author' => $this->presentAuthor($r->user),
-            'is_topic_owner' => $r->user_id === $topic->user_id,
+            'author' => $this->presentAuthor($r),
+            // Misafirde aynı IP'den yazılmışsa da konuyu açan sayılır
+            'is_topic_owner' => $r->user_id !== null
+                ? $r->user_id === $topic->user_id
+                : ($topic->user_id === null && $r->ip_address !== null && $r->ip_address === $topic->ip_address),
             'created_at' => $r->created_at->toIso8601String(),
         ];
     }
 
-    private function presentAuthor(?User $user): array
+    private function presentAuthor(ForumTopic|ForumReply $post): array
     {
-        return ['name' => $user?->fullName() ?? 'Silinmiş üye', 'avatar_url' => $user?->avatarUrl()];
+        return ['name' => $post->authorName(), 'avatar_url' => $post->user?->avatarUrl(), 'is_guest' => $post->user_id === null];
+    }
+
+    /** Üye: hesabına bağlanır. Misafir: IP'ye bağlı sabit ad ve IP kaydedilir. */
+    private function stampAuthor(ForumTopic|ForumReply $post, Request $request): ForumTopic|ForumReply
+    {
+        $user = $request->user('sanctum');
+        if ($user) {
+            $post->user()->associate($user);
+        } else {
+            $post->forceFill(['author_name' => GuestName::for($request->ip())]);
+        }
+        $post->forceFill(['ip_address' => $request->ip()]);
+
+        return $post;
+    }
+
+    /** Aynı kişinin kayıtları: üyede hesap, misafirde IP */
+    private function author(Request $request): \Closure
+    {
+        $user = $request->user('sanctum');
+
+        return fn ($q) => $user ? $q->where('user_id', $user->id) : $q->whereNull('user_id')->where('ip_address', $request->ip());
+    }
+
+    private function authorName(Request $request): string
+    {
+        return $request->user('sanctum')?->fullName() ?? GuestName::for($request->ip());
+    }
+
+    /** Gizli alan: insanlar görmez, robotlar doldurur */
+    private function ensureNotBot(Request $request, string $field): void
+    {
+        if (filled($request->input('website'))) {
+            throw ValidationException::withMessages([$field => 'Gönderilemedi.']);
+        }
     }
 
     /** Karşılaştırma için: Türkçe küçük harf, fazla boşluk tek boşluk */

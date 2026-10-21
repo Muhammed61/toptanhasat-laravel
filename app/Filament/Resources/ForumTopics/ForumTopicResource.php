@@ -76,7 +76,8 @@ class ForumTopicResource extends Resource
                     ->schema([
                         TextEntry::make('category.name')->label('Kategori')->placeholder('-'),
                         TextEntry::make('user')->label('Açan')
-                            ->state(fn (ForumTopic $record) => $record->user?->fullName() ?? 'Silinmiş üye')
+                            ->state(fn (ForumTopic $record) => $record->authorName())
+                            ->helperText(fn (ForumTopic $record) => $record->user_id ? null : 'Misafir · '.$record->ip_address)
                             ->url(fn (ForumTopic $record) => $record->user ? UserResource::getUrl('edit', ['record' => $record->user]) : null)
                             ->color('primary'),
                         TextEntry::make('replies_count')->label('Cevap sayısı'),
@@ -96,7 +97,8 @@ class ForumTopicResource extends Resource
                     ->wrap()->searchable(),
                 TextColumn::make('category.name')->label('Kategori')->badge()->color('gray')->placeholder('-'),
                 TextColumn::make('user')->label('Açan')
-                    ->state(fn (ForumTopic $record) => $record->user?->fullName() ?? 'Silinmiş üye'),
+                    ->state(fn (ForumTopic $record) => $record->authorName())
+                    ->description(fn (ForumTopic $record) => $record->user_id ? 'Üye' : 'Misafir · '.$record->ip_address),
                 TextColumn::make('replies_count')->label('Cevap')->alignCenter()->sortable(),
                 TextColumn::make('last_activity_at')->label('Son hareket')->since()->dateTimeTooltip('d.m.Y H:i')->sortable(),
             ])

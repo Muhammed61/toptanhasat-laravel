@@ -30,7 +30,7 @@ class ForumRepliedNotification extends Notification
     {
         $site = SiteSetting::get('site_name', 'Toptanhasat');
         $title = $this->reply->topic->title;
-        $author = $this->reply->user?->fullName() ?? 'Bir üye';
+        $author = $this->reply->authorName();
 
         return (new MailMessage)
             ->subject($this->toOwner ? "\"{$title}\" konunuza yeni cevap var" : "Cevap yazdığınız \"{$title}\" konusunda yeni cevap var")

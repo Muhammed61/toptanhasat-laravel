@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\ForumTopics\Pages\ListForumTopics;
 use App\Filament\Resources\ForumTopics\Pages\ViewForumTopic;
+use App\Http\Controllers\Api\ForumController;
 use App\Models\ForumReply;
 use App\Models\ForumTopic;
 use App\Models\SiteSetting;
@@ -39,9 +40,17 @@ class ForumTest extends TestCase
         $this->veli = User::factory()->create(['first_name' => 'Veli', 'last_name' => 'Kaya']);
     }
 
+    /** Kullanıcı değiştir (testte önceki isteğin oturumu önbellekte kalmasın) */
+    private function as(User $user): static
+    {
+        app('auth')->forgetGuards();
+
+        return $this->actingAs($user);
+    }
+
     private function openTopic(User $as, array $overrides = []): int
     {
-        return $this->actingAs($as)->postJson('/api/forum', [
+        return $this->as($as)->postJson('/api/forum', [
             'category' => 'sebze',
             'title' => 'Domates fiyatları bu yıl nasıl?',
             'body' => 'Bandırma tarafında domates kaç liradan alınıyor, bilgisi olan var mı?',
@@ -49,14 +58,13 @@ class ForumTest extends TestCase
         ])->assertCreated()->json('id');
     }
 
-    public function test_members_open_topics_and_reply_guests_only_read(): void
+    public function test_members_open_topics_and_reply_and_everyone_reads(): void
     {
-        $this->postJson('/api/forum', ['category' => 'sebze', 'title' => 'Misafir konusu', 'body' => 'Misafir olarak yazıyorum.'])->assertUnauthorized();
-
         $id = $this->openTopic($this->ayse);
-        $this->actingAs($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'Geçen hafta 15 TL idi.'])
+        $this->as($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'Geçen hafta 15 TL idi.'])
             ->assertCreated()
             ->assertJsonPath('author.name', 'Veli Kaya')
+            ->assertJsonPath('author.is_guest', false)
             ->assertJsonPath('is_topic_owner', false);
         app('auth')->forgetGuards();
 
@@ -67,8 +75,41 @@ class ForumTest extends TestCase
             ->assertJsonPath('topic.author.name', 'Ayşe Yılmaz')
             ->assertJsonPath('topic.replies_count', 1)
             ->assertJsonPath('replies.0.body', 'Geçen hafta 15 TL idi.');
+    }
 
-        $this->postJson("/api/forum/{$id}/replies", ['body' => 'Misafir cevabı'])->assertUnauthorized();
+    public function test_guests_open_topics_and_reply_with_an_ip_based_name(): void
+    {
+        $guest = fn (string $ip) => $this->withServerVariables(['REMOTE_ADDR' => $ip]);
+        $name = $guest('85.10.20.30')->getJson('/api/forum/viewer')->assertOk()->assertJsonPath('is_member', false)->json('name');
+        $this->assertMatchesRegularExpression('/^Misafir\d{5}$/', $name);
+
+        $id = $guest('85.10.20.30')->postJson('/api/forum', [
+            'category' => 'meyve', 'title' => 'Kiraz hasadı başladı mı?', 'body' => 'Bu hafta kiraz toplamaya başlayan var mı?',
+        ])->assertCreated()->assertJsonPath('author.name', $name)->assertJsonPath('author.is_guest', true)->json('id');
+
+        // Aynı IP'den cevap: konuyu açan sayılır; başka IP başka misafir
+        $guest('85.10.20.30')->postJson("/api/forum/{$id}/replies", ['body' => 'Bizde başladı.'])
+            ->assertCreated()->assertJsonPath('author.name', $name)->assertJsonPath('is_topic_owner', true);
+        $other = $guest('31.40.50.60')->postJson("/api/forum/{$id}/replies", ['body' => 'Bizde haftaya.'])
+            ->assertCreated()->assertJsonPath('is_topic_owner', false)->json('author.name');
+        $this->assertNotSame($name, $other);
+
+        $this->assertDatabaseHas('forum_topics', ['id' => $id, 'user_id' => null, 'author_name' => $name, 'ip_address' => '85.10.20.30']);
+    }
+
+    public function test_guest_limits_and_bot_trap(): void
+    {
+        $guest = $this->withServerVariables(['REMOTE_ADDR' => '85.10.20.30']);
+        $guest->postJson('/api/forum', ['category' => 'sebze', 'title' => 'Robot konusu', 'body' => 'Ucuz ürün satıyoruz.', 'website' => 'x'])
+            ->assertUnprocessable();
+
+        foreach (range(1, ForumController::GUEST_DAILY_TOPICS) as $i) {
+            $topic = new ForumTopic(['category_id' => null, 'title' => "Eski konu {$i}", 'body' => 'Eski konu metni burada.']);
+            $topic->forceFill(['author_name' => 'Misafir00001', 'ip_address' => '85.10.20.30'])->save();
+        }
+        $guest->postJson('/api/forum', ['category' => 'sebze', 'title' => 'Bir konu daha', 'body' => 'Bir konu daha açmak istiyorum.'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.title.0', 'Bugün çok fazla konu açtınız. Lütfen yarın tekrar deneyin ya da üye olun.');
     }
 
     public function test_list_is_filtered_by_category_and_sorted_by_latest_activity(): void
@@ -78,7 +119,7 @@ class ForumTest extends TestCase
         $fruit = $this->openTopic($this->veli, ['category' => 'meyve', 'title' => 'Kiraz hasadı başladı mı?']);
         $this->travel(1)->hours();
         // Eski konuya cevap gelince en üste çıkar
-        $this->actingAs($this->veli)->postJson("/api/forum/{$old}/replies", ['body' => 'Güncel bilgi ekliyorum.'])->assertCreated();
+        $this->as($this->veli)->postJson("/api/forum/{$old}/replies", ['body' => 'Güncel bilgi ekliyorum.'])->assertCreated();
         app('auth')->forgetGuards();
 
         $this->assertSame([$old, $fruit], $this->getJson('/api/forum')->json('data.*.id'));
@@ -88,17 +129,17 @@ class ForumTest extends TestCase
 
     public function test_links_and_duplicates_are_rejected(): void
     {
-        $this->actingAs($this->ayse)->postJson('/api/forum', [
+        $this->as($this->ayse)->postJson('/api/forum', [
             'category' => 'sebze', 'title' => 'Ucuz gübre burada', 'body' => 'Detaylar için ucuzgubre . com adresine bakın',
         ])->assertUnprocessable()->assertJsonPath('errors.body.0', 'Yorumlarda bağlantı, web sitesi veya e-posta adresi paylaşılamaz.');
 
         $id = $this->openTopic($this->ayse);
-        $this->actingAs($this->ayse)->postJson('/api/forum', [
+        $this->as($this->ayse)->postJson('/api/forum', [
             'category' => 'sebze', 'title' => 'domates fiyatları bu yıl NASIL?', 'body' => 'Aynı konuyu tekrar açmaya çalışıyorum.',
         ])->assertUnprocessable()->assertJsonPath('errors.title.0', 'Bu başlıkla zaten bir konu açtınız.');
 
-        $this->actingAs($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'Merhaba'])->assertCreated();
-        $this->actingAs($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'merhaba'])
+        $this->as($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'Merhaba'])->assertCreated();
+        $this->as($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'merhaba'])
             ->assertUnprocessable()->assertJsonPath('errors.body.0', 'Bu cevabı zaten yazdınız.');
     }
 
@@ -108,8 +149,8 @@ class ForumTest extends TestCase
         Notification::fake();
 
         $id = $this->openTopic($this->ayse);
-        $this->actingAs($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'Veli cevap yazdı.'])->assertCreated();
-        $this->actingAs($this->ayse)->postJson("/api/forum/{$id}/replies", ['body' => 'Ayşe teşekkür etti.'])->assertCreated();
+        $this->as($this->veli)->postJson("/api/forum/{$id}/replies", ['body' => 'Veli cevap yazdı.'])->assertCreated();
+        $this->as($this->ayse)->postJson("/api/forum/{$id}/replies", ['body' => 'Ayşe teşekkür etti.'])->assertCreated();
         app()->terminate();
 
         // Veli'nin cevabı konu sahibi Ayşe'ye; Ayşe'nin cevabı önceden yazan Veli'ye (kendine değil)

@@ -101,7 +101,7 @@ class AdminMail
     public static function forum(ForumTopic $topic, ?ForumReply $reply = null): void
     {
         $topic->loadMissing(['user', 'category']);
-        $author = $reply ? $reply->user : $topic->user;
+        $name = ($reply ?? $topic)->authorName().(($reply ?? $topic)->user_id ? '' : ' (misafir)');
 
         self::send(
             'forum',
@@ -110,7 +110,7 @@ class AdminMail
             array_filter([
                 'Konu' => $topic->title,
                 'Kategori' => $topic->category?->name ?? '-',
-                'Yazan' => $author?->fullName() ?? '-',
+                'Yazan' => $name,
                 'Metin' => Str::limit($reply ? $reply->body : $topic->body, 500),
             ]),
             'Konuyu görüntüle',

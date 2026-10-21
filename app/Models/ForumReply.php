@@ -26,4 +26,10 @@ class ForumReply extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /** Görünen ad: üyenin hesap adı ya da misafirin IP'ye bağlı adı ("Misafir04217") */
+    public function authorName(): string
+    {
+        return $this->user?->fullName() ?? $this->author_name ?? 'Misafir';
+    }
 }

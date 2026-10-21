@@ -11,7 +11,7 @@
 <div class="th-forum">
     <article class="th-forum-post th-forum-post--topic">
         <div class="th-forum-meta">
-            <strong>{{ $topic->user?->fullName() ?? 'Silinmiş üye' }}</strong>
+            <strong>{{ $topic->authorName() }}</strong>@if (! $topic->user_id)<span>(misafir · {{ $topic->ip_address }})</span>@endif
             <span>· konuyu açtı · {{ $topic->created_at->format('d.m.Y H:i') }}</span>
         </div>
         <div class="th-forum-body">{{ $topic->body }}</div>
@@ -20,7 +20,7 @@
     @forelse ($replies as $reply)
         <article class="th-forum-post" wire:key="reply-{{ $reply->id }}">
             <div class="th-forum-meta">
-                <strong>{{ $reply->user?->fullName() ?? 'Silinmiş üye' }}</strong>
+                <strong>{{ $reply->authorName() }}</strong>@if (! $reply->user_id)<span>(misafir · {{ $reply->ip_address }})</span>@endif
                 <span>· {{ $reply->created_at->format('d.m.Y H:i') }}</span>
                 <button
                     type="button"
