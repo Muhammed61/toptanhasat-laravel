@@ -18,7 +18,7 @@ class ProfileTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create([
+        $this->user = User::factory()->withoutCks()->create([
             'first_name' => 'Ayşe', 'last_name' => 'Yılmaz',
             'email' => 'ayse@example.com', 'phone' => '5551112233', 'password' => 'eski-sifre-1',
         ]);

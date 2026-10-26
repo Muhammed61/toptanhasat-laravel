@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Enums\CksStatus;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
@@ -27,6 +28,24 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'Üyeler';
 
     protected static ?int $navigationSort = 3;
+
+    /** Onay bekleyen ÇKS belgesi sayısı */
+    public static function getNavigationBadge(): ?string
+    {
+        $pending = User::query()->where('cks_status', CksStatus::Pending)->count();
+
+        return $pending > 0 ? (string) $pending : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Onay bekleyen ÇKS belgesi';
+    }
 
     public static function form(Schema $schema): Schema
     {

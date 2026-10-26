@@ -21,10 +21,11 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        $user = User::create([
+        $user = new User([
             ...$request->safe()->only(['first_name', 'last_name', 'email', 'phone', 'password']),
             'terms_accepted_at' => now(),
         ]);
+        $user->setTcKimlik($request->validated('tc_kimlik'))->save();
 
         Auth::guard('web')->login($user);
         $request->session()->regenerate();

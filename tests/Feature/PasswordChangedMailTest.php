@@ -20,7 +20,7 @@ class PasswordChangedMailTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create([
+        $this->user = User::factory()->withoutCks()->create([
             'first_name' => 'Ayşe', 'email' => 'ayse@example.com', 'phone' => '5551112233', 'password' => 'eski-sifre-1',
         ]);
         Notification::fake();

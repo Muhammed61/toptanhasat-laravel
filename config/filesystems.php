@@ -41,6 +41,15 @@ return [
         // Dışarıdan yüklenen tüm görseller (logo, favicon, paylaşım görseli, profil fotoğrafları):
         // public/uploads → https://api.toptanhasat.com/uploads/... (storage:link gerekmez).
         // Yayında bu klasör kalıcı olmalı (Dokploy volume: /app/public/uploads).
+        // Kişisel belgeler (ÇKS): herkese açık değil, yalnızca panelden açılır.
+        // Yayında kalıcı bir klasöre bağlanmalı (Dokploy volume: /app/storage/app/private)
+        'documents' => [
+            'driver' => 'local',
+            'root' => env('DOCUMENTS_PATH', storage_path('app/private/documents')),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => public_path('uploads'),

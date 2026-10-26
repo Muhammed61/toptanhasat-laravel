@@ -27,6 +27,7 @@ class AuthTest extends TestCase
             'password' => 'hasat2026',
             'password_confirmation' => 'hasat2026',
             'accept_terms' => true,
+            'tc_kimlik' => '10000000146',
             ...$overrides,
         ];
     }

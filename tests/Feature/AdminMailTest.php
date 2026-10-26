@@ -50,13 +50,14 @@ class AdminMailTest extends TestCase
         $this->withHeader('Referer', 'http://localhost:5173/')->postJson('/api/auth/register', [
             'first_name' => 'Ayşe', 'last_name' => 'Yılmaz', 'email' => 'ayse@example.com', 'phone' => '0555 123 45 67',
             'password' => 'hasat2026', 'password_confirmation' => 'hasat2026', 'accept_terms' => true,
+            'tc_kimlik' => '10000000146',
         ])->assertCreated();
     }
 
     private function listingPayload(array $overrides = []): array
     {
         return [
-            'type' => 'sell', 'category' => 'sebze', 'product' => 'Domates', 'amount' => '5', 'unit' => 'ton',
+            'type' => 'buy', 'category' => 'sebze', 'product' => 'Domates', 'amount' => '5', 'unit' => 'ton',
             'price' => '12.5', 'price_negotiable' => '0', 'city_id' => 12, 'district_id' => 145,
             'show_phone' => '1', 'accept_responsibility' => '1', ...$overrides,
         ];

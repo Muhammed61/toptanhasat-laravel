@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\TcKimlikNo;
 use App\Support\Phone;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -15,6 +16,7 @@ class RegisterRequest extends FormRequest
             'email' => mb_strtolower(trim((string) $this->input('email'))),
             // Geçersizse olduğu gibi bırak; regex kuralı yakalar
             'phone' => Phone::normalize($this->input('phone')) ?? $this->input('phone'),
+            'tc_kimlik' => preg_replace('/\D/', '', (string) $this->input('tc_kimlik')),
         ]);
     }
 
@@ -25,6 +27,7 @@ class RegisterRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:50'],
             'email' => ['required', 'email:rfc', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'regex:/^5\d{9}$/', 'unique:users,phone'],
+            'tc_kimlik' => ['required', new TcKimlikNo],
             'password' => ['required', 'string', 'min:8', 'regex:/\pL/u', 'regex:/\d/', 'confirmed'],
             'accept_terms' => ['accepted'],
         ];
@@ -53,6 +56,7 @@ class RegisterRequest extends FormRequest
             'last_name' => 'Soyad',
             'email' => 'E-posta',
             'phone' => 'Telefon',
+            'tc_kimlik' => 'TC kimlik numarası',
             'password' => 'Şifre',
         ];
     }

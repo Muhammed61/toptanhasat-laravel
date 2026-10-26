@@ -33,6 +33,7 @@ class AdminMail
         'conversation' => 'Yeni mesajlaşma başladı',
         'contact' => 'İletişim formu mesajı',
         'forum' => 'Forum (yeni konu ve cevap)',
+        'cks' => 'ÇKS belgesi gönderildi (onay bekliyor)',
     ];
 
     /** Panelde seçim hiç kaydedilmediyse hepsi açık */
@@ -55,6 +56,15 @@ class AdminMail
             'E-posta' => $user->email,
             'Telefon' => Phone::display($user->phone),
         ], 'Üyeyi görüntüle', UserResource::getUrl('edit', ['record' => $user], isAbsolute: false));
+    }
+
+    public static function cks(User $user): void
+    {
+        self::send('cks', "ÇKS belgesi onay bekliyor: {$user->fullName()}", 'Bir üye satılık ilan verebilmek için ÇKS belgesini gönderdi.', [
+            'Ad soyad' => $user->fullName(),
+            'ÇKS no' => $user->cks_number,
+            'Telefon' => Phone::display($user->phone),
+        ], 'Belgeyi incele', UserResource::getUrl('edit', ['record' => $user], isAbsolute: false));
     }
 
     public static function newListing(Listing $listing, bool $updated = false): void

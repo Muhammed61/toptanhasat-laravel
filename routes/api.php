@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PublicListingController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SitemapController;
 use App\Http\Middleware\EnsureMessagingEnabled;
+use App\Http\Middleware\EnsureTcProvided;
 use Illuminate\Support\Facades\Route;
 
 // Üyelik
@@ -33,23 +34,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/password', [ProfileController::class, 'password'])->middleware('throttle:6,1');
     Route::post('/user/avatar', [ProfileController::class, 'avatar'])->middleware('throttle:10,1');
     Route::delete('/user/avatar', [ProfileController::class, 'removeAvatar']);
+    Route::post('/user/tc', [ProfileController::class, 'tc'])->middleware('throttle:10,1');
+    Route::post('/user/cks', [ProfileController::class, 'cks'])->middleware('throttle:5,1');
 
-    // İlanlar (üye)
-    Route::post('/listings', [ListingController::class, 'store'])->middleware('throttle:10,1');
+    // İlanlar (üye; TC kimlik gerekir)
+    Route::post('/listings', [ListingController::class, 'store'])->middleware(['throttle:10,1', EnsureTcProvided::class]);
     Route::get('/my/listings', [ListingController::class, 'mine']);
     Route::get('/my/listings/{listing}', [ListingController::class, 'showOwn'])->whereNumber('listing');
-    Route::put('/listings/{listing}', [ListingController::class, 'update'])->whereNumber('listing')->middleware('throttle:20,1');
+    Route::put('/listings/{listing}', [ListingController::class, 'update'])->whereNumber('listing')->middleware(['throttle:20,1', EnsureTcProvided::class]);
 
     // İlan sahibinin iletişim bilgisi sadece üyelere; toplu toplanmasın diye sınırlı
     Route::get('/listings/{listing}/contact', [PublicListingController::class, 'contact'])->middleware('throttle:30,1');
 
     // Site içi mesajlaşma (admin panelden kapatılabilir)
     Route::middleware(EnsureMessagingEnabled::class)->group(function () {
-        Route::post('/listings/{listing}/conversations', [ConversationController::class, 'start'])->middleware('throttle:20,1');
+        Route::post('/listings/{listing}/conversations', [ConversationController::class, 'start'])->middleware(['throttle:20,1', EnsureTcProvided::class]);
         Route::get('/conversations', [ConversationController::class, 'index']);
         Route::get('/conversations/unread-count', [ConversationController::class, 'unreadCount']);
         Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->whereNumber('conversation');
-        Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'reply'])->middleware('throttle:30,1');
+        Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'reply'])->middleware(['throttle:30,1', EnsureTcProvided::class]);
     });
 });
 

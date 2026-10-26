@@ -6,6 +6,7 @@ use App\Enums\ListingType;
 use App\Models\Category;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreListingRequest extends FormRequest
 {
@@ -28,6 +29,18 @@ class StoreListingRequest extends FormRequest
             'district_id' => ['required', 'integer', Rule::exists('districts', 'id')->where('city_id', $this->integer('city_id'))],
             'show_phone' => ['boolean'],
             'accept_responsibility' => ['accepted'],
+        ];
+    }
+
+    /** Satılık ilan için ÇKS belgesi gönderilmiş olmalı (alım ilanı için gerekmez) */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($this->input('type') === ListingType::Sell->value && ! $this->user()->canSubmitSellListing()) {
+                    $validator->errors()->add('type', 'Satılık ilan vermek için önce ÇKS numaranızı ve belgenizi gönderin.');
+                }
+            },
         ];
     }
 

@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Listings;
 
 use App\Enums\ListingStatus;
+use App\Enums\ListingType;
+use App\Filament\Resources\Users\UserResource;
 use App\Models\Listing;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -25,9 +27,27 @@ class ListingActions
             ->modalHeading(fn (Listing $record) => "\"{$record->title()}\" yayına alınsın mı?")
             ->modalSubmitActionLabel('Onayla ve yayınla')
             ->action(function (Listing $record) {
+                if (self::needsCks($record)) {
+                    Notification::make()
+                        ->title('Önce üyenin ÇKS belgesini onaylayın')
+                        ->body('Satılık ilan, sahibinin ÇKS belgesi onaylanmadan yayına alınamaz.')
+                        ->danger()
+                        ->actions([Action::make('user')->label('Üyeye git')->url(UserResource::getUrl('edit', ['record' => $record->user]))])
+                        ->persistent()
+                        ->send();
+
+                    return;
+                }
+
                 $record->approve(auth()->user());
                 Notification::make()->title('İlan yayına alındı')->success()->send();
             });
+    }
+
+    /** Satılık ilanın sahibinin ÇKS'si onaylı değilse yayına alınamaz */
+    public static function needsCks(Listing $listing): bool
+    {
+        return $listing->type === ListingType::Sell && $listing->user && ! $listing->user->canPublishSellListing();
     }
 
     public static function reject(): Action
@@ -61,8 +81,17 @@ class ListingActions
             ->color('success')
             ->requiresConfirmation()
             ->action(function (Collection $records) {
-                $records->each(fn (Listing $listing) => $listing->approve(auth()->user()));
-                Notification::make()->title("{$records->count()} ilan yayına alındı")->success()->send();
+                [$blocked, $ok] = $records->partition(fn (Listing $listing) => self::needsCks($listing));
+                $ok->each(fn (Listing $listing) => $listing->approve(auth()->user()));
+
+                Notification::make()->title("{$ok->count()} ilan yayına alındı")->success()->send();
+                if ($blocked->isNotEmpty()) {
+                    Notification::make()
+                        ->title("{$blocked->count()} satılık ilan yayına alınmadı")
+                        ->body('Sahiplerinin ÇKS belgesi henüz onaylanmamış.')
+                        ->warning()
+                        ->send();
+                }
             })
             ->deselectRecordsAfterCompletion();
     }

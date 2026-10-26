@@ -6,6 +6,7 @@ use App\Filament\Resources\ContactMessages\ContactMessageResource;
 use App\Filament\Resources\Conversations\ConversationResource;
 use App\Filament\Resources\ForumTopics\ForumTopicResource;
 use App\Filament\Resources\ListingComments\ListingCommentResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Models\ContactMessage;
 use App\Models\ForumReply;
 use App\Models\ForumTopic;
@@ -38,12 +39,15 @@ class AdminNotifier
 
     public const TYPE_FORUM = 'forum';
 
+    public const TYPE_CKS = 'cks';
+
     /** Bildirimler sayfasındaki tür filtresi */
     public const TYPES = [
         self::TYPE_COMMENT => 'İlan yorumu',
         self::TYPE_MESSAGE => 'Üye mesajı',
         self::TYPE_CONTACT => 'İletişim formu',
         self::TYPE_FORUM => 'Forum',
+        self::TYPE_CKS => 'ÇKS belgesi',
     ];
 
     public static function comment(ListingComment $comment): void
@@ -118,6 +122,22 @@ class AdminNotifier
                 ->body("\"{$topic->title}\"".($reply ? ' · '.Str::limit($reply->body, 120) : ''))
                 ->icon(Heroicon::OutlinedChatBubbleOvalLeftEllipsis)
                 ->iconColor('success'),
+        );
+    }
+
+    /** Üye ÇKS belgesini gönderdi, onay bekliyor */
+    public static function cks(User $user): void
+    {
+        self::send(
+            recipients: self::admins(except: $user->id),
+            type: self::TYPE_CKS,
+            key: "cks:{$user->id}",
+            url: UserResource::getUrl('edit', ['record' => $user], isAbsolute: false),
+            notification: fn () => Notification::make()
+                ->title("ÇKS belgesi onay bekliyor: {$user->fullName()}")
+                ->body("ÇKS no: {$user->cks_number}")
+                ->icon(Heroicon::OutlinedIdentification)
+                ->iconColor('warning'),
         );
     }
 
