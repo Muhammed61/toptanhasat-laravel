@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Banner;
 use App\Models\Category;
 use App\Models\MarketPrice;
 use App\Models\SiteSetting;
@@ -18,7 +19,7 @@ class SiteData
      * Veri yapısı değişince (yeni alan eklenince) sürümü artırın; eski önbellek kendiliğinden
      * geçersiz olur, yayına alırken önbellek temizlemeyi unutmak sorun çıkarmaz.
      */
-    private const VERSION = 3;
+    private const VERSION = 4;
 
     private const CACHE_KEY = 'site.public.v'.self::VERSION;
 
@@ -82,6 +83,17 @@ class SiteData
                     'product' => $p->product,
                     'price' => (float) $p->price,
                     'change' => (float) $p->change,
+                ])
+                ->values(),
+            'banners' => Banner::where('is_active', true)
+                ->orderBy('sort')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (Banner $b) => [
+                    'id' => $b->id,
+                    'title' => $b->title,
+                    'image_url' => $b->imageUrl(),
+                    'url' => $b->url,
                 ])
                 ->values(),
         ];

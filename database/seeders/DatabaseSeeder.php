@@ -15,6 +15,6 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // AdminSeeder: .env'de ADMIN_EMAIL / ADMIN_PASSWORD varsa ilk admin hesabı
-        $this->call([CitySeeder::class, ContentSeeder::class, AdminSeeder::class]);
+        $this->call([CitySeeder::class, ContentSeeder::class, AdminSeeder::class, BannerSeeder::class]);
     }
 }
